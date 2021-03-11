@@ -36,7 +36,7 @@ public abstract class StringHashRedisRepository<T> extends BaseRedisRepository<T
         super(jedis);
         throwIfNullOrEmptyOrBlank(collectionKey, "collectionKey");
         if (collectionKey.contains(DEFAULT_KEY_SEPARATOR)) {
-            throw new IllegalArgumentException("Collection key `" + collectionKey + "` cannot contain `" + "`");
+            throw new IllegalArgumentException("Collection key `" + collectionKey + "` cannot contain `" + DEFAULT_KEY_SEPARATOR + "`");
         }
         keyPrefix = collectionKey + DEFAULT_KEY_SEPARATOR;
         allKeysPattern = collectionKey + DEFAULT_KEY_SEPARATOR + "*";
@@ -53,7 +53,7 @@ public abstract class StringHashRedisRepository<T> extends BaseRedisRepository<T
         super(jedisPool);
         throwIfNullOrEmptyOrBlank(collectionKey, "collectionKey");
         if (collectionKey.contains(DEFAULT_KEY_SEPARATOR)) {
-            throw new IllegalArgumentException("Collection key `" + collectionKey + "` cannot contain `" + "`");
+            throw new IllegalArgumentException("Collection key `" + collectionKey + "` cannot contain `" + DEFAULT_KEY_SEPARATOR + "`");
         }
         keyPrefix = collectionKey + DEFAULT_KEY_SEPARATOR;
         allKeysPattern = collectionKey + DEFAULT_KEY_SEPARATOR + "*";

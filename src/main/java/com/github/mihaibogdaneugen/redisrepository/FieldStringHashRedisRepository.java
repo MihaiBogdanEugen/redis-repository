@@ -34,8 +34,8 @@ public abstract class FieldStringHashRedisRepository<T> extends BaseRedisReposit
     public FieldStringHashRedisRepository(final Jedis jedis, final String parentKey) {
         super(jedis);
         throwIfNullOrEmptyOrBlank(parentKey, "parentKey");
-        if (parentKey.contains(DEFAULT_KEY_SEPARATOR)) {
-            throw new IllegalArgumentException("Parent key `" + parentKey + "` cannot contain `" + "`");
+        if (parentKey.contains(DEFAULT_KEY_SEPARATOR) || parentKey.contains(DEFAULT_LOCK_KEY)) {
+            throw new IllegalArgumentException("Parent key `" + parentKey + "` cannot contain `" + DEFAULT_KEY_SEPARATOR + "`, nor `" + DEFAULT_LOCK_KEY + "`!");
         }
         this.parentKey = parentKey;
     }
@@ -50,8 +50,8 @@ public abstract class FieldStringHashRedisRepository<T> extends BaseRedisReposit
     public FieldStringHashRedisRepository(final JedisPool jedisPool, final String parentKey) {
         super(jedisPool);
         throwIfNullOrEmptyOrBlank(parentKey, "parentKey");
-        if (parentKey.contains(DEFAULT_KEY_SEPARATOR)) {
-            throw new IllegalArgumentException("Parent key `" + parentKey + "` cannot contain `" + "`");
+        if (parentKey.contains(DEFAULT_KEY_SEPARATOR) || parentKey.contains(DEFAULT_LOCK_KEY)) {
+            throw new IllegalArgumentException("Parent key `" + parentKey + "` cannot contain `" + DEFAULT_KEY_SEPARATOR + "`, nor `" + DEFAULT_LOCK_KEY + "`!");
         }
         this.parentKey = parentKey;
     }

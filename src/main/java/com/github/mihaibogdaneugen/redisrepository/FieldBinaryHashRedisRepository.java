@@ -36,6 +36,9 @@ public abstract class FieldBinaryHashRedisRepository<T> extends BaseRedisReposit
     public FieldBinaryHashRedisRepository(final Jedis jedis, final String parentKey) {
         super(jedis);
         throwIfNullOrEmptyOrBlank(parentKey, "parentKey");
+        if (parentKey.contains(DEFAULT_KEY_SEPARATOR) || parentKey.contains(DEFAULT_LOCK_KEY)) {
+            throw new IllegalArgumentException("Parent key `" + parentKey + "` cannot contain `" + DEFAULT_KEY_SEPARATOR + "`, nor `" + DEFAULT_LOCK_KEY + "`!");
+        }
         this.parentKey = SafeEncoder.encode(parentKey);
     }
 
@@ -49,6 +52,9 @@ public abstract class FieldBinaryHashRedisRepository<T> extends BaseRedisReposit
     public FieldBinaryHashRedisRepository(final JedisPool jedisPool, final String parentKey) {
         super(jedisPool);
         throwIfNullOrEmptyOrBlank(parentKey, "parentKey");
+        if (parentKey.contains(DEFAULT_KEY_SEPARATOR) || parentKey.contains(DEFAULT_LOCK_KEY)) {
+            throw new IllegalArgumentException("Parent key `" + parentKey + "` cannot contain `" + DEFAULT_KEY_SEPARATOR + "`, nor `" + DEFAULT_LOCK_KEY + "`!");
+        }
         this.parentKey = SafeEncoder.encode(parentKey);
     }
 

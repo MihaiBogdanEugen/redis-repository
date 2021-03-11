@@ -13,6 +13,5 @@ abstract class RedisTestContainer {
         REDIS_CONTAINER = new GenericContainer<>(DockerImageName.parse("redis:6"))
                 .withExposedPorts(REDIS_PORT);
         REDIS_CONTAINER.start();
-        REDIS_CONTAINER.close();
     }
 }
