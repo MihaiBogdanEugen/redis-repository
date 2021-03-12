@@ -345,6 +345,88 @@ final class StringHashRedisRepositoryTests extends RedisTestContainer {
     }
 
     @Test
+    void testSetInvalidArgumentId() {
+        final var person = Person.random();
+        final var nullIdError = assertThrows(IllegalArgumentException.class, () ->
+                repository.set(null, person));
+        assertEquals("id cannot be null, nor empty!", nullIdError.getMessage());
+
+        final var emptyIdError = assertThrows(IllegalArgumentException.class, () ->
+                repository.set("", person));
+        assertEquals("id cannot be null, nor empty!", emptyIdError.getMessage());
+    }
+
+    @Test
+    void testSetNullArgumentEntity() {
+        final var person = Person.random();
+        final var nullPersonError = assertThrows(IllegalArgumentException.class, () ->
+                repository.set(person.getId(), null));
+        assertEquals("entity cannot be null!", nullPersonError.getMessage());
+    }
+
+    @Test
+    void testSetReplace() {
+        final var oldPerson = Person.random();
+        insert(oldPerson);
+        final var expectedPerson = Person.random();
+        expectedPerson.setId(oldPerson.getId());
+        repository.set(expectedPerson.getId(), expectedPerson);
+        final var actualPerson = get(expectedPerson.getId());
+        assertTrue(actualPerson.isPresent());
+        assertEquals(expectedPerson, actualPerson.get());
+    }
+
+    @Test
+    void testSetInsert() {
+        final var expectedPerson = Person.random();
+        repository.set(expectedPerson.getId(), expectedPerson);
+        final var actualPerson = get(expectedPerson.getId());
+        assertTrue(actualPerson.isPresent());
+        assertEquals(expectedPerson, actualPerson.get());
+    }
+
+    @Test
+    void testSetIfNotExistsInvalidArgumentId() {
+        final var person = Person.random();
+        final var nullIdError = assertThrows(IllegalArgumentException.class, () ->
+                repository.setIfNotExist(null, person));
+        assertEquals("id cannot be null, nor empty!", nullIdError.getMessage());
+
+        final var emptyIdError = assertThrows(IllegalArgumentException.class, () ->
+                repository.setIfNotExist("", person));
+        assertEquals("id cannot be null, nor empty!", emptyIdError.getMessage());
+    }
+
+    @Test
+    void testSetIfNotExistsNullArgumentEntity() {
+        final var person = Person.random();
+        final var nullPersonError = assertThrows(IllegalArgumentException.class, () ->
+                repository.setIfNotExist(person.getId(), null));
+        assertEquals("entity cannot be null!", nullPersonError.getMessage());
+    }
+
+    @Test
+    void testSetIfNotExistsReplace() {
+        final var oldPerson = Person.random();
+        insert(oldPerson);
+        final var expectedPerson = Person.random();
+        expectedPerson.setId(oldPerson.getId());
+        repository.setIfNotExist(expectedPerson.getId(), expectedPerson);
+        final var actualPerson = get(expectedPerson.getId());
+        assertTrue(actualPerson.isPresent());
+        assertEquals(oldPerson, actualPerson.get());
+    }
+
+    @Test
+    void testSetIfNotExists() {
+        final var expectedPerson = Person.random();
+        repository.setIfNotExist(expectedPerson.getId(), expectedPerson);
+        final var actualPerson = get(expectedPerson.getId());
+        assertTrue(actualPerson.isPresent());
+        assertEquals(expectedPerson, actualPerson.get());
+    }
+
+    @Test
     void testDeleteInvalidArgument() {
         final var nullIdError = assertThrows(IllegalArgumentException.class, () ->
                 repository.delete((String)null));
