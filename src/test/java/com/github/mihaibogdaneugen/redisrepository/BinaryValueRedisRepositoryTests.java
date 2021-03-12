@@ -21,11 +21,11 @@ import java.util.stream.IntStream;
 import static com.github.mihaibogdaneugen.redisrepository.BaseRedisRepository.isNullOrEmpty;
 import static org.junit.jupiter.api.Assertions.*;
 
-final class BinaryRedisRepositoryTests extends RedisTestContainer {
+final class BinaryValueRedisRepositoryTests extends RedisTestContainer {
 
     static Jedis jedis;
     static JedisPool jedisPool;
-    static BinaryRedisRepository<Person> repository;
+    static BinaryValueRedisRepository<Person> repository;
 
     @BeforeAll
     static void beforeAll() {
@@ -33,7 +33,7 @@ final class BinaryRedisRepositoryTests extends RedisTestContainer {
                 REDIS_CONTAINER.getContainerIpAddress(),
                 REDIS_CONTAINER.getMappedPort(REDIS_PORT));
         jedis = jedisPool.getResource();
-        repository = new BinaryRedisRepository<>(jedis, "people") {
+        repository = new BinaryValueRedisRepository<>(jedis, "people") {
             final ObjectMapper objectMapper = new ObjectMapper()
                     .registerModule(new JavaTimeModule())
                     .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
@@ -71,7 +71,7 @@ final class BinaryRedisRepositoryTests extends RedisTestContainer {
     @Test
     void testNewInstanceWithNullJedis() {
         final var nullJedisError = assertThrows(IllegalArgumentException.class, () ->
-                new BinaryRedisRepository<Person>((Jedis) null, randomString()) {
+                new BinaryValueRedisRepository<Person>((Jedis) null, randomString()) {
                     @Override
                     public byte[] convertTo(final Person entity) {
                         return null;
@@ -88,7 +88,7 @@ final class BinaryRedisRepositoryTests extends RedisTestContainer {
     @Test
     void testNewInstanceWithNullJedisPool() {
         final var nullJedisPoolError = assertThrows(IllegalArgumentException.class, () ->
-                new BinaryRedisRepository<Person>((JedisPool) null, randomString()) {
+                new BinaryValueRedisRepository<Person>((JedisPool) null, randomString()) {
                     @Override
                     public byte[] convertTo(final Person entity) {
                         return null;
@@ -105,7 +105,7 @@ final class BinaryRedisRepositoryTests extends RedisTestContainer {
     @Test
     void testNewInstanceWithValidJedisAndInvalidCollectionKey() {
         final var nullCollectionKeyError = assertThrows(IllegalArgumentException.class, () ->
-                new BinaryRedisRepository<Person>(jedis, null) {
+                new BinaryValueRedisRepository<Person>(jedis, null) {
                     @Override
                     public byte[] convertTo(final Person entity) {
                         return null;
@@ -119,7 +119,7 @@ final class BinaryRedisRepositoryTests extends RedisTestContainer {
         assertEquals("collectionKey cannot be null, nor empty!", nullCollectionKeyError.getMessage());
 
         final var emptyCollectionKeyError = assertThrows(IllegalArgumentException.class, () ->
-                new BinaryRedisRepository<Person>(jedis, "") {
+                new BinaryValueRedisRepository<Person>(jedis, "") {
                     @Override
                     public byte[] convertTo(final Person entity) {
                         return null;
@@ -134,7 +134,7 @@ final class BinaryRedisRepositoryTests extends RedisTestContainer {
 
         final var invalidCollectionKey = randomString() + ":" + randomString();
         final var invalidCollectionKeyError = assertThrows(IllegalArgumentException.class, () ->
-                new BinaryRedisRepository<Person>(jedis, invalidCollectionKey) {
+                new BinaryValueRedisRepository<Person>(jedis, invalidCollectionKey) {
                     @Override
                     public byte[] convertTo(final Person entity) {
                         return null;
@@ -151,7 +151,7 @@ final class BinaryRedisRepositoryTests extends RedisTestContainer {
     @Test
     void testNewInstanceWithValidJedisPoolAndInvalidCollectionKey() {
         final var nullCollectionKeyError = assertThrows(IllegalArgumentException.class, () ->
-                new BinaryRedisRepository<Person>(jedisPool, null) {
+                new BinaryValueRedisRepository<Person>(jedisPool, null) {
                     @Override
                     public byte[] convertTo(final Person entity) {
                         return null;
@@ -165,7 +165,7 @@ final class BinaryRedisRepositoryTests extends RedisTestContainer {
         assertEquals("collectionKey cannot be null, nor empty!", nullCollectionKeyError.getMessage());
 
         final var emptyCollectionKeyError = assertThrows(IllegalArgumentException.class, () ->
-                new BinaryRedisRepository<Person>(jedisPool, "") {
+                new BinaryValueRedisRepository<Person>(jedisPool, "") {
                     @Override
                     public byte[] convertTo(final Person entity) {
                         return null;
@@ -180,7 +180,7 @@ final class BinaryRedisRepositoryTests extends RedisTestContainer {
 
         final var invalidCollectionKey = randomString() + ":" + randomString();
         final var invalidCollectionKeyError = assertThrows(IllegalArgumentException.class, () ->
-                new BinaryRedisRepository<Person>(jedisPool, invalidCollectionKey) {
+                new BinaryValueRedisRepository<Person>(jedisPool, invalidCollectionKey) {
                     @Override
                     public byte[] convertTo(final Person entity) {
                         return null;

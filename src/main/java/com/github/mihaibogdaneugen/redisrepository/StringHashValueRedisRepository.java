@@ -2,9 +2,7 @@ package com.github.mihaibogdaneugen.redisrepository;
 
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
-import redis.clients.jedis.util.SafeEncoder;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -12,7 +10,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * A RedisRepository for a specified entity type, where all entities are serialized as binary values <br/>
+ * A RedisRepository for a specified entity type, where all entities are serialized as UTF-8 encoded Strings <br/>
  * and stored in a single map (Redis hash). Each entity is a key in this map. <br/>
  * Design details:<br/>
  * - every entity has a String identifier, but this is not enforced as part of the type itself.<br/>
@@ -21,56 +19,56 @@ import java.util.stream.Collectors;
  * or transactional behaviour of other operations. <br/>
  * @param <T> The type of the entity
  */
-public abstract class FieldBinaryHashRedisRepository<T> extends BaseRedisRepository<T> {
+public abstract class StringHashValueRedisRepository<T> extends BaseRedisRepository<T> {
 
     private static final String DEFAULT_LOCK_KEY = "_lock";
 
-    private final byte[] parentKey;
+    private final String parentKey;
 
     /**
-     * Builds a FieldBinaryHashRedisRepository, based around a Jedis object, for a specific collection.<br/>
+     * Builds a StringHashValueRedisRepository, based around a Jedis object, for a specific collection.<br/>
      * The provided Jedis object will be closed should `.close()` be called.
      * @param jedis The Jedis object
      * @param parentKey The name of the collection used as the parent key
      */
-    public FieldBinaryHashRedisRepository(final Jedis jedis, final String parentKey) {
+    public StringHashValueRedisRepository(final Jedis jedis, final String parentKey) {
         super(jedis);
         throwIfNullOrEmptyOrBlank(parentKey, "parentKey");
         if (parentKey.contains(DEFAULT_KEY_SEPARATOR) || parentKey.contains(DEFAULT_LOCK_KEY)) {
             throw new IllegalArgumentException("Parent key `" + parentKey + "` cannot contain `" + DEFAULT_KEY_SEPARATOR + "`, nor `" + DEFAULT_LOCK_KEY + "`!");
         }
-        this.parentKey = SafeEncoder.encode(parentKey);
+        this.parentKey = parentKey;
     }
 
     /**
-     * Builds a FieldBinaryHashRedisRepository, based around a jedisPool object, for a specific collection.<br/>
+     * Builds a StringHashValueRedisRepository, based around a jedisPool object, for a specific collection.<br/>
      * A Jedis object will be retrieved from the JedisPool by calling `.getResource()` and it will<br/>
      * be closed should `.close()` be called.
      * @param jedisPool The JedisPool object
      * @param parentKey The name of the collection used as the parent key
      */
-    public FieldBinaryHashRedisRepository(final JedisPool jedisPool, final String parentKey) {
+    public StringHashValueRedisRepository(final JedisPool jedisPool, final String parentKey) {
         super(jedisPool);
         throwIfNullOrEmptyOrBlank(parentKey, "parentKey");
         if (parentKey.contains(DEFAULT_KEY_SEPARATOR) || parentKey.contains(DEFAULT_LOCK_KEY)) {
             throw new IllegalArgumentException("Parent key `" + parentKey + "` cannot contain `" + DEFAULT_KEY_SEPARATOR + "`, nor `" + DEFAULT_LOCK_KEY + "`!");
         }
-        this.parentKey = SafeEncoder.encode(parentKey);
+        this.parentKey = parentKey;
     }
 
     /**
-     * Converts the given binary value to a String.
+     * Converts the given entity to a String.
      * @param entity The entity to be converted
-     * @return A binary value object
+     * @return A String object
      */
-    public abstract byte[] convertTo(final T entity);
+    public abstract String convertTo(final T entity);
 
     /**
-     * Converts back the given binary value to an entity.
-     * @param entityAsBytes The binary value representation of the entity
+     * Converts back the given String to an entity.
+     * @param entityAsString The String representation of the entity
      * @return An entity object
      */
-    public abstract T convertFrom(final byte[] entityAsBytes);
+    public abstract T convertFrom(final String entityAsString);
 
     /**
      * Retrieves the entity with the given identifier.<br/>
@@ -82,8 +80,8 @@ public abstract class FieldBinaryHashRedisRepository<T> extends BaseRedisReposit
     @Override
     public final Optional<T> get(final String id) {
         throwIfNullOrEmptyOrBlank(id, "id");
-        final var entity = jedis.hget(parentKey, getKey(id));
-        return isNullOrEmpty(entity)
+        final var entity = jedis.hget(parentKey, id);
+        return isNullOrEmptyOrBlank(entity)
                 ? Optional.empty()
                 : Optional.of(convertFrom(entity));
     }
@@ -98,9 +96,9 @@ public abstract class FieldBinaryHashRedisRepository<T> extends BaseRedisReposit
     @Override
     public final List<T> get(final String... ids) {
         throwIfNullOrEmpty(ids);
-        final var entities = jedis.hmget(parentKey, getKeys(ids));
+        final var entities = jedis.hmget(parentKey, ids);
         return entities.stream()
-                .filter(BaseRedisRepository::isNotNullNorEmpty)
+                .filter(BaseRedisRepository::isNotNullNorEmptyNorBlank)
                 .map(this::convertFrom)
                 .collect(Collectors.toList());
     }
@@ -114,7 +112,7 @@ public abstract class FieldBinaryHashRedisRepository<T> extends BaseRedisReposit
     @Override
     public final List<T> getAll() {
         return jedis.hgetAll(parentKey).values().stream()
-                .filter(BaseRedisRepository::isNotNullNorEmpty)
+                .filter(BaseRedisRepository::isNotNullNorEmptyNorBlank)
                 .map(this::convertFrom)
                 .collect(Collectors.toList());
     }
@@ -129,7 +127,7 @@ public abstract class FieldBinaryHashRedisRepository<T> extends BaseRedisReposit
     @Override
     public final Boolean exists(final String id) {
         throwIfNullOrEmptyOrBlank(id, "id");
-        return jedis.hexists(parentKey, getKey(id));
+        return jedis.hexists(parentKey, id);
     }
 
     /**
@@ -143,7 +141,7 @@ public abstract class FieldBinaryHashRedisRepository<T> extends BaseRedisReposit
     public final void set(final String id, final T entity) {
         throwIfNullOrEmptyOrBlank(id, "id");
         throwIfNull(entity, "entity");
-        jedis.hset(parentKey, getKey(id), convertTo(entity));
+        jedis.hset(parentKey, id, convertTo(entity));
     }
 
     /**
@@ -157,7 +155,7 @@ public abstract class FieldBinaryHashRedisRepository<T> extends BaseRedisReposit
     public final void setIfNotExist(final String id, final T entity) {
         throwIfNullOrEmptyOrBlank(id, "id");
         throwIfNull(entity, "entity");
-        jedis.hsetnx(parentKey, getKey(id), convertTo(entity));
+        jedis.hsetnx(parentKey, id, convertTo(entity));
     }
 
     /**
@@ -180,8 +178,8 @@ public abstract class FieldBinaryHashRedisRepository<T> extends BaseRedisReposit
         throwIfNull(updater, "updater");
         final var lockKey = getLockKey(id);
         jedis.watch(lockKey);
-        final var value = jedis.hget(parentKey, getKey(id));
-        if (isNullOrEmpty(value)) {
+        final var value = jedis.hget(parentKey, id);
+        if (isNullOrEmptyOrBlank(value)) {
             jedis.unwatch();
             return Optional.empty();
         }
@@ -190,8 +188,8 @@ public abstract class FieldBinaryHashRedisRepository<T> extends BaseRedisReposit
         final var newValue = convertTo(newEntity);
         final List<Object> results;
         try (final var transaction = jedis.multi()) {
-            transaction.set(lockKey, SafeEncoder.encode(UUID.randomUUID().toString()));
-            transaction.hset(parentKey, getKey(id), newValue);
+            transaction.set(lockKey, UUID.randomUUID().toString());
+            transaction.hset(parentKey, id, newValue);
             results = transaction.exec();
         }
         return Optional.of(isNotNullNorEmpty(results));
@@ -206,7 +204,7 @@ public abstract class FieldBinaryHashRedisRepository<T> extends BaseRedisReposit
     @Override
     public final void delete(final String id) {
         throwIfNullOrEmptyOrBlank(id, "id");
-        jedis.hdel(parentKey, getKey(id));
+        jedis.hdel(parentKey, id);
     }
 
     /**
@@ -218,7 +216,7 @@ public abstract class FieldBinaryHashRedisRepository<T> extends BaseRedisReposit
     @Override
     public final void delete(final String... ids) {
         throwIfNullOrEmpty(ids);
-        jedis.hdel(parentKey, getKeys(ids));
+        jedis.hdel(parentKey, ids);
     }
 
     /**
@@ -231,18 +229,7 @@ public abstract class FieldBinaryHashRedisRepository<T> extends BaseRedisReposit
         jedis.del(parentKey);
     }
 
-    private byte[] getKey(final String id) {
-        return SafeEncoder.encode(id);
-    }
-
-    private byte[][] getKeys(final String... ids) {
-        return Arrays.stream(ids)
-                .filter(BaseRedisRepository::isNotNullNorEmptyNorBlank)
-                .map(this::getKey)
-                .toArray(byte[][]::new);
-    }
-
-    private byte[] getLockKey(final String id) {
-        return SafeEncoder.encode(DEFAULT_LOCK_KEY + DEFAULT_KEY_SEPARATOR + SafeEncoder.encode(parentKey) + DEFAULT_KEY_SEPARATOR + id);
+    private String getLockKey(final String id) {
+        return DEFAULT_LOCK_KEY + DEFAULT_KEY_SEPARATOR + parentKey + DEFAULT_KEY_SEPARATOR + id;
     }
 }

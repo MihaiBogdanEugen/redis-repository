@@ -23,18 +23,18 @@ import java.util.stream.Collectors;
  * for large collections.
  * @param <T> The type of the entity
  */
-public abstract class StringRedisRepository<T> extends BaseRedisRepository<T> {
+public abstract class StringValueRedisRepository<T> extends BaseRedisRepository<T> {
 
     private final String keyPrefix;
     private final String allKeysPattern;
 
     /**
-     * Builds a StringRedisRepository, based around a Jedis object, for a specific collection.<br/>
+     * Builds a StringValueRedisRepository, based around a Jedis object, for a specific collection.<br/>
      * The provided Jedis object will be closed should `.close()` be called.
      * @param jedis The Jedis object
      * @param collectionKey The name (key) of the collection
      */
-    public StringRedisRepository(final Jedis jedis, final String collectionKey) {
+    public StringValueRedisRepository(final Jedis jedis, final String collectionKey) {
         super(jedis);
         throwIfNullOrEmptyOrBlank(collectionKey, "collectionKey");
         if (collectionKey.contains(DEFAULT_KEY_SEPARATOR)) {
@@ -45,13 +45,13 @@ public abstract class StringRedisRepository<T> extends BaseRedisRepository<T> {
     }
 
     /**
-     * Builds a StringRedisRepository, based around a jedisPool object, for a specific collection.<br/>
+     * Builds a StringValueRedisRepository, based around a jedisPool object, for a specific collection.<br/>
      * A Jedis object will be retrieved from the JedisPool by calling `.getResource()` and it will<br/>
      * be closed should `.close()` be called.
      * @param jedisPool The JedisPool object
      * @param collectionKey The name (key) of the collection
      */
-    public StringRedisRepository(final JedisPool jedisPool, final String collectionKey) {
+    public StringValueRedisRepository(final JedisPool jedisPool, final String collectionKey) {
         super(jedisPool);
         throwIfNullOrEmptyOrBlank(collectionKey, "collectionKey");
         if (collectionKey.contains(DEFAULT_KEY_SEPARATOR)) {
