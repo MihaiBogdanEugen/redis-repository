@@ -67,6 +67,10 @@ abstract class BaseRedisRepository<T> implements RedisRepository<T>, AutoCloseab
         return list != null && !list.isEmpty();
     }
 
+    protected static <T> boolean isNotNullNorEmpty(final Map<T, T> map) {
+        return map != null && !map.isEmpty();
+    }
+
     protected static <T> boolean isNullOrEmpty(final Map<T, T> map) {
         return map == null || map.isEmpty();
     }

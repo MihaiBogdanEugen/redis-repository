@@ -341,7 +341,9 @@ public abstract class BinaryHashRedisRepository<T> extends BaseRedisRepository<T
             pipeline.sync();
         }
         return responses.stream()
-                .map(response -> convertFrom(response.get()))
+                .map(Response::get)
+                .filter(BaseRedisRepository::isNotNullNorEmpty)
+                .map(this::convertFrom)
                 .collect(Collectors.toList());
     }
 
