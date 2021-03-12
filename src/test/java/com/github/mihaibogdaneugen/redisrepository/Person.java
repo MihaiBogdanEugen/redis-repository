@@ -111,6 +111,18 @@ public class Person {
                 id, fullName, dateOfBirth, isMarried, heightMeters, eyeColor);
     }
 
+    @Override
+    public String toString() {
+        return "Person{" +
+                "id='" + id + '\'' +
+                ", fullName='" + fullName + '\'' +
+                ", dateOfBirth=" + dateOfBirth +
+                ", isMarried=" + isMarried +
+                ", heightMeters=" + heightMeters +
+                ", eyeColor=" + eyeColor +
+                '}';
+    }
+
     public static Person random() {
         final var random = new Random();
         final var id = UUID.randomUUID().toString();
