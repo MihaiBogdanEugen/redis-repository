@@ -310,6 +310,26 @@ final class StringRedisRepositoryTests extends RedisTestContainer {
         expectedPeopleMap.forEach((key, value) -> assertEquals(value, actualPeopleMap.get(key)));
     }
 
+    @Test
+    void testExistsInvalidArgument() {
+        final var nullIdError = assertThrows(IllegalArgumentException.class, () ->
+                repository.exists(null));
+        assertEquals("id cannot be null, nor empty!", nullIdError.getMessage());
+
+        final var emptyIdError = assertThrows(IllegalArgumentException.class, () ->
+                repository.exists(""));
+        assertEquals("id cannot be null, nor empty!", emptyIdError.getMessage());
+    }
+
+    @Test
+    void testExists() {
+        final var expectedPerson1 = Person.random();
+        insert(expectedPerson1);
+        final var expectedPerson2 = Person.random();
+        assertTrue(repository.exists(expectedPerson1.getId()));
+        assertFalse(repository.exists(expectedPerson2.getId()));
+    }
+
     private void insert(final Person person) {
         jedis.set("people:" + person.getId(), repository.convertTo(person));
     }
