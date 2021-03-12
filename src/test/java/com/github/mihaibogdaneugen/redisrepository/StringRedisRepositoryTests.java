@@ -12,7 +12,6 @@ import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 
 import java.io.UncheckedIOException;
-import java.util.HashMap;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
