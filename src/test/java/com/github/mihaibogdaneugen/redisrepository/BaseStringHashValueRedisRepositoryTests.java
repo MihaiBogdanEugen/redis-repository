@@ -144,7 +144,7 @@ final class BaseStringHashValueRedisRepositoryTests extends RedisTestContainer {
                         return null;
                     }
                 });
-        assertEquals("Parent key `" + invalidCollectionKey + "` cannot contain `:`, nor `_lock`!", invalidCollectionKeyError.getMessage());
+        assertEquals("Parent key `" + invalidCollectionKey + "` cannot contain `:`!", invalidCollectionKeyError.getMessage());
     }
 
     @Test
@@ -190,7 +190,7 @@ final class BaseStringHashValueRedisRepositoryTests extends RedisTestContainer {
                         return null;
                     }
                 });
-        assertEquals("Parent key `" + invalidCollectionKey + "` cannot contain `:`, nor `_lock`!", invalidCollectionKeyError.getMessage());
+        assertEquals("Parent key `" + invalidCollectionKey + "` cannot contain `:`!", invalidCollectionKeyError.getMessage());
     }
 
     @Test
