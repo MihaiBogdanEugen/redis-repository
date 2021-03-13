@@ -518,6 +518,23 @@ final class BaseStringHashValueRedisRepositoryTests extends RedisTestContainer {
         });
     }
 
+    @Test
+    void testGetAllKeys() {
+        final var noKeys = repository.getAllKeys();
+        assertTrue(noKeys.isEmpty());
+        final var expectedPeopleMap = IntStream.range(0, 50)
+                .mapToObj(i -> Person.random())
+                .collect(Collectors.toMap(Person::getId, person -> person));
+        expectedPeopleMap.values().forEach(this::insert);
+        final var allKeys = repository.getAllKeys();
+        assertEquals(50, allKeys.size());
+        expectedPeopleMap.keySet()
+                .forEach(key -> assertTrue(allKeys.contains(key)));
+        jedis.hdel("people", allKeys.toArray(String[]::new));
+        final var noMoreKeys = repository.getAllKeys();
+        assertTrue(noMoreKeys.isEmpty());
+    }
+
     private void insert(final Person person) {
         jedis.hset("people", person.getId(), repository.convertTo(person));
     }

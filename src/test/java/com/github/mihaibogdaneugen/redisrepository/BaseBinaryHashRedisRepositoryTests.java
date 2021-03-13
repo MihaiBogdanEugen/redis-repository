@@ -647,12 +647,26 @@ final class BaseBinaryHashRedisRepositoryTests extends RedisTestContainer {
         });
     }
 
-    private void insert(final Person person) {
-        jedis.hset(SafeEncoder.encode("people:" + person.getId()), repository.convertTo(person));
+    @Test
+    void testGetAllKeys() {
+        final var noKeys = repository.getAllKeys();
+        assertTrue(noKeys.isEmpty());
+        final var expectedPeopleMap = IntStream.range(0, 50)
+                .mapToObj(i -> Person.random())
+                .collect(Collectors.toMap(Person::getId, person -> person));
+        expectedPeopleMap.values().forEach(this::insert);
+        final var allKeys = repository.getAllKeys();
+        assertEquals(50, allKeys.size());
+        expectedPeopleMap.keySet().stream()
+                .map(id -> "people:" + id)
+                .forEach(key -> assertTrue(allKeys.contains(key)));
+        jedis.del(allKeys.toArray(String[]::new));
+        final var noMoreKeys = repository.getAllKeys();
+        assertTrue(noMoreKeys.isEmpty());
     }
 
-    private void insertEmpty(final String id) {
-        jedis.set("people:" + id, "");
+    private void insert(final Person person) {
+        jedis.hset(SafeEncoder.encode("people:" + person.getId()), repository.convertTo(person));
     }
 
     private Optional<Person> get(final String id) {
