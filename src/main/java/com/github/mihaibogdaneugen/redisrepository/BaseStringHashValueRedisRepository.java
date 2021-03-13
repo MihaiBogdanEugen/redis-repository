@@ -5,8 +5,7 @@ import redis.clients.jedis.JedisPool;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
-import java.util.function.Function;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -23,8 +22,6 @@ public abstract class BaseStringHashValueRedisRepository<T>
         extends RedisRepository
         implements StringHashValueRedisRepository<T> {
 
-    private static final String DEFAULT_LOCK_KEY = "_lock";
-
     private final String parentKey;
 
     /**
@@ -36,8 +33,8 @@ public abstract class BaseStringHashValueRedisRepository<T>
     public BaseStringHashValueRedisRepository(final Jedis jedis, final String parentKey) {
         super(jedis);
         throwIfNullOrEmptyOrBlank(parentKey, "parentKey");
-        if (parentKey.contains(DEFAULT_KEY_SEPARATOR) || parentKey.contains(DEFAULT_LOCK_KEY)) {
-            throw new IllegalArgumentException("Parent key `" + parentKey + "` cannot contain `" + DEFAULT_KEY_SEPARATOR + "`, nor `" + DEFAULT_LOCK_KEY + "`!");
+        if (parentKey.contains(DEFAULT_KEY_SEPARATOR)) {
+            throw new IllegalArgumentException("Parent key `" + parentKey + "` cannot contain `" + DEFAULT_KEY_SEPARATOR + "`!");
         }
         this.parentKey = parentKey;
     }
@@ -52,25 +49,11 @@ public abstract class BaseStringHashValueRedisRepository<T>
     public BaseStringHashValueRedisRepository(final JedisPool jedisPool, final String parentKey) {
         super(jedisPool);
         throwIfNullOrEmptyOrBlank(parentKey, "parentKey");
-        if (parentKey.contains(DEFAULT_KEY_SEPARATOR) || parentKey.contains(DEFAULT_LOCK_KEY)) {
-            throw new IllegalArgumentException("Parent key `" + parentKey + "` cannot contain `" + DEFAULT_KEY_SEPARATOR + "`, nor `" + DEFAULT_LOCK_KEY + "`!");
+        if (parentKey.contains(DEFAULT_KEY_SEPARATOR)) {
+            throw new IllegalArgumentException("Parent key `" + parentKey + "` cannot contain `" + DEFAULT_KEY_SEPARATOR + "`!");
         }
         this.parentKey = parentKey;
     }
-
-//    /**
-//     * Converts the given entity to a String.
-//     * @param entity The entity to be converted
-//     * @return A String object
-//     */
-//    public abstract String convertTo(final T entity);
-//
-//    /**
-//     * Converts back the given String to an entity.
-//     * @param entityAsString The String representation of the entity
-//     * @return An entity object
-//     */
-//    public abstract T convertFrom(final String entityAsString);
 
     /**
      * Retrieves the entity with the given identifier.<br/>
@@ -160,42 +143,42 @@ public abstract class BaseStringHashValueRedisRepository<T>
         jedis.hsetnx(parentKey, id, convertTo(entity));
     }
 
-    /**
-     * Updates the entity with the specified identifier by calling the `updater` function.<br/>
-     * This method provides a transactional behaviour for updating the entity by using a lock key.<br/>
-     * Note: This method calls the WATCH, HGET, UNWATCH, MULTI, HSET and EXEC Redis commands.
-     * @see <a href="https://redis.io/commands/WATCH">WATCH</a>
-     * @see <a href="https://redis.io/commands/HGET">HGET</a>
-     * @see <a href="https://redis.io/commands/UNWATCH">UNWATCH</a>
-     * @see <a href="https://redis.io/commands/MULTI">MULTI</a>
-     * @see <a href="https://redis.io/commands/HSET">HSET</a>
-     * @see <a href="https://redis.io/commands/EXEC">EXEC</a>
-     * @param id The String identifier of the entity
-     * @param updater A function that updates the entity
-     * @return Optional object, empty if no such entity exists, or boolean value indicating the status of the transaction
-     */
-    @Override
-    public final Optional<Boolean> update(final String id, final Function<T, T> updater) {
-        throwIfNullOrEmptyOrBlank(id, "id");
-        throwIfNull(updater, "updater");
-        final var lockKey = getLockKey(id);
-        jedis.watch(lockKey);
-        final var value = jedis.hget(parentKey, id);
-        if (isNullOrEmptyOrBlank(value)) {
-            jedis.unwatch();
-            return Optional.empty();
-        }
-        final var entity = convertFrom(value);
-        final var newEntity = updater.apply(entity);
-        final var newValue = convertTo(newEntity);
-        final List<Object> results;
-        try (final var transaction = jedis.multi()) {
-            transaction.set(lockKey, UUID.randomUUID().toString());
-            transaction.hset(parentKey, id, newValue);
-            results = transaction.exec();
-        }
-        return Optional.of(isNotNullNorEmpty(results));
-    }
+//    /**
+//     * Updates the entity with the specified identifier by calling the `updater` function.<br/>
+//     * This method provides a transactional behaviour for updating the entity by using a lock key.<br/>
+//     * Note: This method calls the WATCH, HGET, UNWATCH, MULTI, HSET and EXEC Redis commands.
+//     * @see <a href="https://redis.io/commands/WATCH">WATCH</a>
+//     * @see <a href="https://redis.io/commands/HGET">HGET</a>
+//     * @see <a href="https://redis.io/commands/UNWATCH">UNWATCH</a>
+//     * @see <a href="https://redis.io/commands/MULTI">MULTI</a>
+//     * @see <a href="https://redis.io/commands/HSET">HSET</a>
+//     * @see <a href="https://redis.io/commands/EXEC">EXEC</a>
+//     * @param id The String identifier of the entity
+//     * @param updater A function that updates the entity
+//     * @return Optional object, empty if no such entity exists, or boolean value indicating the status of the transaction
+//     */
+//    @Override
+//    public final Optional<Boolean> update(final String id, final Function<T, T> updater) {
+//        throwIfNullOrEmptyOrBlank(id, "id");
+//        throwIfNull(updater, "updater");
+//        final var lockKey = getLockKey(id);
+//        jedis.watch(lockKey);
+//        final var value = jedis.hget(parentKey, id);
+//        if (isNullOrEmptyOrBlank(value)) {
+//            jedis.unwatch();
+//            return Optional.empty();
+//        }
+//        final var entity = convertFrom(value);
+//        final var newEntity = updater.apply(entity);
+//        final var newValue = convertTo(newEntity);
+//        final List<Object> results;
+//        try (final var transaction = jedis.multi()) {
+//            transaction.set(lockKey, UUID.randomUUID().toString());
+//            transaction.hset(parentKey, id, newValue);
+//            results = transaction.exec();
+//        }
+//        return Optional.of(isNotNullNorEmpty(results));
+//    }
 
     /**
      * Removes the entity with the given identifier.<br/>
@@ -231,7 +214,14 @@ public abstract class BaseStringHashValueRedisRepository<T>
         jedis.del(parentKey);
     }
 
-    private String getLockKey(final String id) {
-        return DEFAULT_LOCK_KEY + DEFAULT_KEY_SEPARATOR + parentKey + DEFAULT_KEY_SEPARATOR + id;
+    /**
+     * Retrieve all keys of all entities in the current collection.<br/>
+     * Note: This method calls the HKEYS Redis command.
+     * @see <a href="https://redis.io/commands/HKEYS">HKEYS</a>
+     * @return Set of String objects representing entity identifiers
+     */
+    @Override
+    public Set<String> getAllKeys() {
+        return jedis.hkeys(parentKey);
     }
 }

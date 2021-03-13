@@ -2,7 +2,7 @@ package com.github.mihaibogdaneugen.redisrepository;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.function.Function;
+import java.util.Set;
 
 interface HashValueRedisRepository<T, SerializationType> {
 
@@ -51,13 +51,13 @@ interface HashValueRedisRepository<T, SerializationType> {
      */
     void setIfNotExist(final String id, final T entity);
 
-    /**
-     * Updates the entity with the specified identifier by calling the `updater` function.<br/>
-     * @param id The String identifier of the entity
-     * @param updater A function that updates the entity
-     * @return Optional object, empty if no such entity exists, or boolean value indicating the status of the transaction
-     */
-    Optional<Boolean> update(final String id, final Function<T, T> updater);
+//    /**
+//     * Updates the entity with the specified identifier by calling the `updater` function.<br/>
+//     * @param id The String identifier of the entity
+//     * @param updater A function that updates the entity
+//     * @return Optional object, empty if no such entity exists, or boolean value indicating the status of the transaction
+//     */
+//    Optional<Boolean> update(final String id, final Function<T, T> updater);
 
     /**
      * Removes the entity with the given identifier.<br/>
@@ -75,4 +75,10 @@ interface HashValueRedisRepository<T, SerializationType> {
      * Removes all entities from the current collection.<br/>
      */
     void deleteAll();
+
+    /**
+     * Retrieve all keys of all entities in the current collection.
+     * @return Set of String objects representing entity identifiers
+     */
+    Set<String> getAllKeys();
 }

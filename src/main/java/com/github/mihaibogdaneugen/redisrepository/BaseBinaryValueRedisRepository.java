@@ -2,11 +2,13 @@ package com.github.mihaibogdaneugen.redisrepository;
 
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
+import redis.clients.jedis.params.SetParams;
 import redis.clients.jedis.util.SafeEncoder;
 
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -63,20 +65,6 @@ public abstract class BaseBinaryValueRedisRepository<T>
         allKeysPattern = SafeEncoder.encode(collectionKey + DEFAULT_KEY_SEPARATOR + "*");
     }
 
-//    /**
-//     * Converts the given entity to a binary value.
-//     * @param entity The entity to be converted
-//     * @return A binary value object
-//     */
-//    public abstract byte[] convertTo(final T entity);
-//
-//    /**
-//     * Converts back the given binary value to an entity.
-//     * @param entityAsBinary The binary value representation of the entity
-//     * @return An entity object
-//     */
-//    public abstract T convertFrom(final byte[] entityAsBinary);
-
     /**
      * Retrieves the entity with the given identifier.<br/>
      * Note: This method calls the GET Redis command.
@@ -120,7 +108,7 @@ public abstract class BaseBinaryValueRedisRepository<T>
      */
     @Override
     public final List<T> getAll() {
-        final var keys = getAllKeys();
+        final var keys = getAllKeysArray();
         return getByKeys(keys);
     }
 
@@ -153,9 +141,19 @@ public abstract class BaseBinaryValueRedisRepository<T>
         jedis.set(key, convertTo(entity));
     }
 
+    /**
+     * Inserts the given entity with the specified identifier, only if it does exist.<br/>
+     * Note: This method calls the SET Redis command.
+     * @see <a href="https://redis.io/commands/SET">SET</a>
+     * @param id The String identifier of the entity
+     * @param entity The entity to be set
+     */
     @Override
-    public final void setIfExist(String id, T entity) {
-
+    public final void setIfExist(final String id, final T entity) {
+        throwIfNullOrEmptyOrBlank(id, "id");
+        throwIfNull(entity, "entity");
+        final var key = getKey(id);
+        jedis.set(key, convertTo(entity), SetParams.setParams().xx());
     }
 
     /**
@@ -209,9 +207,47 @@ public abstract class BaseBinaryValueRedisRepository<T>
         return Optional.of(isNotNullNorEmpty(results));
     }
 
+    /**
+     * Updates the entity with the specified identifier by calling the `updater` function only if the `conditioner` <br/>
+     * returns true (conditional update).<br/>
+     * This method provides a transactional behaviour for updating the entity.<br/>
+     * Note: This method calls the WATCH, GET, UNWATCH, MULTI, SET and EXEC Redis commands.
+     * @see <a href="https://redis.io/commands/WATCH">WATCH</a>
+     * @see <a href="https://redis.io/commands/GET">GET</a>
+     * @see <a href="https://redis.io/commands/UNWATCH">UNWATCH</a>
+     * @see <a href="https://redis.io/commands/MULTI">MULTI</a>
+     * @see <a href="https://redis.io/commands/SET">SET</a>
+     * @see <a href="https://redis.io/commands/EXEC">EXEC</a>
+     * @param id The String identifier of the entity
+     * @param updater A function that updates the entity
+     * @param conditioner A function that represents the condition for the update to happen
+     * @return Optional object, empty if no such entity exists, or boolean value indicating the status of the transaction
+     */
     @Override
-    public final Optional<Boolean> update(String id, Function<T, T> updater, Function<T, Boolean> conditioner) {
-        return Optional.empty();
+    public final Optional<Boolean> update(final String id, final Function<T, T> updater, final Function<T, Boolean> conditioner) {
+        throwIfNullOrEmptyOrBlank(id, "id");
+        throwIfNull(updater, "updater");
+        throwIfNull(conditioner, "conditioner");
+        final var key = getKey(id);
+        jedis.watch(key);
+        final var value = jedis.get(key);
+        if (isNullOrEmpty(value)) {
+            jedis.unwatch();
+            return Optional.empty();
+        }
+        final var entity = convertFrom(value);
+        if (!conditioner.apply(entity)) {
+            jedis.unwatch();
+            return Optional.of(true);
+        }
+        final var newEntity = updater.apply(entity);
+        final var newValue = convertTo(newEntity);
+        final List<Object> results;
+        try (final var transaction = jedis.multi()) {
+            transaction.set(key, newValue);
+            results = transaction.exec();
+        }
+        return Optional.of(isNotNullNorEmpty(results));
     }
 
     /**
@@ -251,25 +287,9 @@ public abstract class BaseBinaryValueRedisRepository<T>
      */
     @Override
     public final void deleteAll() {
-        final var keys = getAllKeys();
+        final var keys = getAllKeysArray();
         jedis.del(keys);
     }
-
-//    /**
-//     * Replace (or insert) the given entity with the specified identifier.<br/>
-//     * Note: This method calls the SET Redis command.
-//     * @see <a href="https://redis.io/commands/SET">SET</a>
-//     * @param id The String identifier of the entity
-//     * @param entity The entity to be set
-//     * @param setParams The SetParams object providing more flags
-//     */
-//    public final void set(final String id, final T entity, final SetParams setParams) {
-//        throwIfNullOrEmptyOrBlank(id, "id");
-//        throwIfNull(entity, "entity");
-//        throwIfNull(setParams, "setParams");
-//        final var key = getKey(id);
-//        jedis.set(key, convertTo(entity), setParams);
-//    }
 
     /**
      * Sets the expiration after the given number of milliseconds for the entity with the given identifier.<br/>
@@ -315,6 +335,17 @@ public abstract class BaseBinaryValueRedisRepository<T>
         return jedis.pttl(key);
     }
 
+    /**
+     * Retrieve all keys of all entities in the current collection.<br/>
+     * Note: This method calls the KEYS Redis command.
+     * @see <a href="https://redis.io/commands/KEYS">KEYS</a>
+     * @return Set of String objects representing entity identifiers
+     */
+    @Override
+    public final Set<String> getAllKeys() {
+        return jedis.keys(SafeEncoder.encode(allKeysPattern));
+    }
+
     private byte[] getKey(final String keySuffix) {
         return SafeEncoder.encode(keyPrefix + keySuffix);
     }
@@ -334,7 +365,7 @@ public abstract class BaseBinaryValueRedisRepository<T>
                 .collect(Collectors.toList());
     }
 
-    private byte[][] getAllKeys() {
+    private byte[][] getAllKeysArray() {
         return jedis.keys(allKeysPattern).toArray(byte[][]::new);
     }
 }

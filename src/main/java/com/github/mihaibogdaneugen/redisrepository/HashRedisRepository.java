@@ -3,6 +3,7 @@ package com.github.mihaibogdaneugen.redisrepository;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 
 interface HashRedisRepository<T, SerializationType> {
@@ -127,4 +128,10 @@ interface HashRedisRepository<T, SerializationType> {
      * @return No. of milliseconds
      */
     Long getTimeToLiveLeft(final String id);
+
+    /**
+     * Retrieve all keys of all entities in the current collection.
+     * @return Set of String objects representing entity identifiers
+     */
+    Set<String> getAllKeys();
 }

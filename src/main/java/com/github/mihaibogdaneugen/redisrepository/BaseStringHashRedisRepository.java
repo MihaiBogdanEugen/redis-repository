@@ -61,20 +61,6 @@ public abstract class BaseStringHashRedisRepository<T>
         allKeysPattern = collectionKey + DEFAULT_KEY_SEPARATOR + "*";
     }
 
-//    /**
-//     * Converts the given entity to a Map of Strings.
-//     * @param entity The entity to be converted
-//     * @return A Map of Strings object
-//     */
-//    public abstract Map<String, String> convertTo(final T entity);
-//
-//    /**
-//     * Converts back the given Map of Strings to an entity.
-//     * @param entityAsMap The Map of Strings representation of the entity
-//     * @return An entity object
-//     */
-//    public abstract T convertFrom(final Map<String, String> entityAsMap);
-
     /**
      * Retrieves the entity with the given identifier.<br/>
      * Note: This method calls the HGETALL Redis command.
@@ -127,7 +113,7 @@ public abstract class BaseStringHashRedisRepository<T>
      */
     @Override
     public final List<T> getAll() {
-        final var keys = getAllKeys();
+        final var keys = getAllKeysArray();
         return getByKeys(keys);
     }
 
@@ -160,9 +146,33 @@ public abstract class BaseStringHashRedisRepository<T>
         jedis.hset(key, convertTo(entity));
     }
 
+    /**
+     * Inserts the given entity with the specified identifier, only if it does exist.<br/>
+     * This method works in a transactional manner by watching for such a key.<br/>
+     * Note: This method calls the WATCH, EXISTS, UNWATCH, MULTI, HSET and EXEC Redis command.
+     * @see <a href="https://redis.io/commands/WATCH">WATCH</a>
+     * @see <a href="https://redis.io/commands/EXISTS">EXISTS</a>
+     * @see <a href="https://redis.io/commands/UNWATCH">UNWATCH</a>
+     * @see <a href="https://redis.io/commands/MULTI">MULTI</a>
+     * @see <a href="https://redis.io/commands/HSET">HSET</a>
+     * @see <a href="https://redis.io/commands/EXEC">EXEC</a>
+     * @param id The String identifier of the entity
+     * @param entity The entity to be set
+     */
     @Override
     public final void setIfExist(final String id, final T entity) {
-
+        throwIfNullOrEmptyOrBlank(id, "id");
+        throwIfNull(entity, "entity");
+        final var key = getKey(id);
+        jedis.watch(key);
+        if (!jedis.exists(key)) {
+            jedis.unwatch();
+            return;
+        }
+        try (final var transaction = jedis.multi()) {
+            transaction.hset(key, convertTo(entity));
+            transaction.exec();
+        }
     }
 
     /**
@@ -230,9 +240,46 @@ public abstract class BaseStringHashRedisRepository<T>
         return Optional.of(isNotNullNorEmpty(results));
     }
 
+    /**
+     * Updates the entity with the specified identifier by calling the `updater` function only if the `conditioner` returns true (conditional update).<br/>
+     * This method provides a transactional behaviour for updating the entity.<br/>
+     * Note: This method calls the WATCH, HGETALL, UNWATCH, MULTI, HSET and EXEC Redis commands.
+     * @see <a href="https://redis.io/commands/WATCH">WATCH</a>
+     * @see <a href="https://redis.io/commands/HGETALL">HGETALL</a>
+     * @see <a href="https://redis.io/commands/UNWATCH">UNWATCH</a>
+     * @see <a href="https://redis.io/commands/MULTI">MULTI</a>
+     * @see <a href="https://redis.io/commands/HSET">HSET</a>
+     * @see <a href="https://redis.io/commands/EXEC">EXEC</a>
+     * @param id The String identifier of the entity
+     * @param updater A function that updates the entity
+     * @param conditioner A function that represents the condition for the update to happen
+     * @return Optional object, empty if no such entity exists, or boolean value indicating the status of the transaction
+     */
     @Override
     public final Optional<Boolean> update(final String id, final Function<T, T> updater, final Function<T, Boolean> conditioner) {
-        return Optional.empty();
+        throwIfNullOrEmptyOrBlank(id, "id");
+        throwIfNull(updater, "updater");
+        throwIfNull(conditioner, "conditioner");
+        final var key = getKey(id);
+        jedis.watch(key);
+        final var value = jedis.hgetAll(key);
+        if (isNullOrEmpty(value)) {
+            jedis.unwatch();
+            return Optional.empty();
+        }
+        final var entity = convertFrom(value);
+        if (!conditioner.apply(entity)) {
+            jedis.unwatch();
+            return Optional.of(true);
+        }
+        final var newEntity = updater.apply(entity);
+        final var newValue = convertTo(newEntity);
+        final List<Object> results;
+        try (final var transaction = jedis.multi()) {
+            transaction.hset(key, newValue);
+            results = transaction.exec();
+        }
+        return Optional.of(isNotNullNorEmpty(results));
     }
 
     /**
@@ -272,7 +319,7 @@ public abstract class BaseStringHashRedisRepository<T>
      */
     @Override
     public final void deleteAll() {
-        final var keys = getAllKeys();
+        final var keys = getAllKeysArray();
         jedis.del(keys);
     }
 
@@ -345,6 +392,17 @@ public abstract class BaseStringHashRedisRepository<T>
         return jedis.pttl(key);
     }
 
+    /**
+     * Retrieve all keys of all entities in the current collection.<br/>
+     * Note: This method calls the KEYS Redis command.
+     * @see <a href="https://redis.io/commands/KEYS">KEYS</a>
+     * @return Set of String objects representing entity identifiers
+     */
+    @Override
+    public final Set<String> getAllKeys() {
+        return jedis.keys(allKeysPattern);
+    }
+
     private List<T> getByKeys(final String... keys) {
         final var responses = new ArrayList<Response<Map<String, String>>>();
         try (final var pipeline = jedis.pipelined()) {
@@ -369,7 +427,7 @@ public abstract class BaseStringHashRedisRepository<T>
         return keyPrefix + keySuffix;
     }
 
-    private String[] getAllKeys() {
-        return jedis.keys(allKeysPattern).toArray(String[]::new);
+    private String[] getAllKeysArray() {
+        return getAllKeys().toArray(String[]::new);
     }
 }
