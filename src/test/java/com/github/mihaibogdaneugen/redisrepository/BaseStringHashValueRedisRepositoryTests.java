@@ -402,67 +402,6 @@ final class BaseStringHashValueRedisRepositoryTests extends RedisTestContainer {
         assertEquals(expectedPerson, actualPerson.get());
     }
 
-//    @Test
-//    void testUpdateInvalidArgumentId() {
-//        final var nullIdError = assertThrows(IllegalArgumentException.class, () ->
-//                repository.update(null, person -> null));
-//        assertEquals("id cannot be null, nor empty!", nullIdError.getMessage());
-//
-//        final var emptyIdError = assertThrows(IllegalArgumentException.class, () ->
-//                repository.update("", person -> null));
-//        assertEquals("id cannot be null, nor empty!", emptyIdError.getMessage());
-//    }
-//
-//    @Test
-//    void testUpdateNullUpdater() {
-//        final var nullIdError = assertThrows(IllegalArgumentException.class, () ->
-//                repository.update(randomString(), null));
-//        assertEquals("updater cannot be null!", nullIdError.getMessage());
-//    }
-//
-//    @Test
-//    void testUpdateNonExistingEntity() {
-//        final var person = Person.random();
-//        final var updateResult = repository.update(person.getId(), x -> new Person(
-//                x.getId(),
-//                randomString(),
-//                x.getDateOfBirth(),
-//                x.isMarried(),
-//                x.getHeightMeters(),
-//                x.getEyeColor()
-//        ));
-//        assertTrue(updateResult.isEmpty());
-//    }
-//
-//    @Test
-//    void testUpdate() {
-//        final var expectedPerson = Person.random();
-//        insert(expectedPerson);
-//        final var newFullName = randomString();
-//        final var newHeightMeters = (150 + new Random().nextInt(50)) / 100f;
-//        final var updater = new Function<Person, Person>() {
-//            @Override
-//            public Person apply(final Person x) {
-//                return new Person(
-//                        x.getId(),
-//                        newFullName,
-//                        x.getDateOfBirth(),
-//                        x.isMarried(),
-//                        newHeightMeters,
-//                        x.getEyeColor());
-//            }
-//        };
-//        final var updateResult = repository.update(expectedPerson.getId(), updater);
-//        assertTrue(updateResult.isPresent());
-//        assertTrue(updateResult.get());
-//        final var getResult = get(expectedPerson.getId());
-//        assertTrue(getResult.isPresent());
-//        assertNotEquals(expectedPerson, getResult.get());
-//        expectedPerson.setFullName(newFullName);
-//        expectedPerson.setHeightMeters(newHeightMeters);
-//        assertEquals(expectedPerson, getResult.get());
-//    }
-
     @Test
     void testDeleteInvalidArgument() {
         final var nullIdError = assertThrows(IllegalArgumentException.class, () ->

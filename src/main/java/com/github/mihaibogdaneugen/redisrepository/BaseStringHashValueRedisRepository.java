@@ -15,7 +15,8 @@ import java.util.stream.Collectors;
  * - every entity has a String identifier, but this is not enforced as part of the type itself.<br/>
  * - all entity of a certain type are stored into a single big hash, identified by the collection key.<br/>
  * Note: This repository optimises for `get_all` and `delete_all` operations, while not sacrificing performance<br/>
- * or transactional behaviour of other operations. <br/>
+ * or transactional behaviour of other operations, with the except of `update`. There is no easy way to have a <br/>
+ * transactional update, for such purposes, use a Lua script with the ScriptingCommands API. <br/>
  * @param <T> The type of the entity
  */
 public abstract class BaseStringHashValueRedisRepository<T>
@@ -142,43 +143,6 @@ public abstract class BaseStringHashValueRedisRepository<T>
         throwIfNull(entity, "entity");
         jedis.hsetnx(parentKey, id, convertTo(entity));
     }
-
-//    /**
-//     * Updates the entity with the specified identifier by calling the `updater` function.<br/>
-//     * This method provides a transactional behaviour for updating the entity by using a lock key.<br/>
-//     * Note: This method calls the WATCH, HGET, UNWATCH, MULTI, HSET and EXEC Redis commands.
-//     * @see <a href="https://redis.io/commands/WATCH">WATCH</a>
-//     * @see <a href="https://redis.io/commands/HGET">HGET</a>
-//     * @see <a href="https://redis.io/commands/UNWATCH">UNWATCH</a>
-//     * @see <a href="https://redis.io/commands/MULTI">MULTI</a>
-//     * @see <a href="https://redis.io/commands/HSET">HSET</a>
-//     * @see <a href="https://redis.io/commands/EXEC">EXEC</a>
-//     * @param id The String identifier of the entity
-//     * @param updater A function that updates the entity
-//     * @return Optional object, empty if no such entity exists, or boolean value indicating the status of the transaction
-//     */
-//    @Override
-//    public final Optional<Boolean> update(final String id, final Function<T, T> updater) {
-//        throwIfNullOrEmptyOrBlank(id, "id");
-//        throwIfNull(updater, "updater");
-//        final var lockKey = getLockKey(id);
-//        jedis.watch(lockKey);
-//        final var value = jedis.hget(parentKey, id);
-//        if (isNullOrEmptyOrBlank(value)) {
-//            jedis.unwatch();
-//            return Optional.empty();
-//        }
-//        final var entity = convertFrom(value);
-//        final var newEntity = updater.apply(entity);
-//        final var newValue = convertTo(newEntity);
-//        final List<Object> results;
-//        try (final var transaction = jedis.multi()) {
-//            transaction.set(lockKey, UUID.randomUUID().toString());
-//            transaction.hset(parentKey, id, newValue);
-//            results = transaction.exec();
-//        }
-//        return Optional.of(isNotNullNorEmpty(results));
-//    }
 
     /**
      * Removes the entity with the given identifier.<br/>
