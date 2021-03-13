@@ -4,7 +4,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 
-public interface HashValueRedisRepository<T, SerializationType> {
+interface HashValueRedisRepository<T, SerializationType> {
 
     SerializationType convertTo(final T entity);
 

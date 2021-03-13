@@ -10,6 +10,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
+import redis.clients.jedis.util.SafeEncoder;
 
 import java.io.UncheckedIOException;
 import java.util.Optional;
@@ -19,14 +20,14 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import static com.github.mihaibogdaneugen.redisrepository.BaseRedisRepository.isNullOrEmptyOrBlank;
+import static com.github.mihaibogdaneugen.redisrepository.RedisRepository.isNullOrEmpty;
 import static org.junit.jupiter.api.Assertions.*;
 
-final class StringHashValueRedisRepositoryTests extends RedisTestContainer {
+final class BaseBinaryHashValueRedisRepositoryTests extends RedisTestContainer {
 
     static Jedis jedis;
     static JedisPool jedisPool;
-    static StringHashValueRedisRepository<Person> repository;
+    static BaseBinaryHashValueRedisRepository<Person> repository;
 
     @BeforeAll
     static void beforeAll() {
@@ -34,24 +35,24 @@ final class StringHashValueRedisRepositoryTests extends RedisTestContainer {
                 REDIS_CONTAINER.getContainerIpAddress(),
                 REDIS_CONTAINER.getMappedPort(REDIS_PORT));
         jedis = jedisPool.getResource();
-        repository = new StringHashValueRedisRepository<>(jedis, "people") {
+        repository = new BaseBinaryHashValueRedisRepository<>(jedis, "people") {
             final ObjectMapper objectMapper = new ObjectMapper()
                     .registerModule(new JavaTimeModule())
                     .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
             @Override
-            public String convertTo(final Person person) {
+            public byte[] convertTo(final Person person) {
                 try {
-                    return objectMapper.writeValueAsString(person);
+                    return SafeEncoder.encode(objectMapper.writeValueAsString(person));
                 } catch (final JsonProcessingException e) {
                     throw new UncheckedIOException(e);
                 }
             }
 
             @Override
-            public Person convertFrom(final String entity) {
+            public Person convertFrom(final byte[] entity) {
                 try {
-                    return objectMapper.readValue(entity, Person.class);
+                    return objectMapper.readValue(SafeEncoder.encode(entity), Person.class);
                 } catch (final JsonProcessingException e) {
                     throw new UncheckedIOException(e);
                 }
@@ -72,14 +73,14 @@ final class StringHashValueRedisRepositoryTests extends RedisTestContainer {
     @Test
     void testNewInstanceWithNullJedis() {
         final var nullJedisError = assertThrows(IllegalArgumentException.class, () ->
-                new StringHashValueRedisRepository<Person>((Jedis) null, randomString()) {
+                new BaseBinaryHashValueRedisRepository<Person>((Jedis) null, randomString()) {
                     @Override
-                    public String convertTo(final Person entity) {
+                    public byte[] convertTo(final Person entity) {
                         return null;
                     }
 
                     @Override
-                    public Person convertFrom(final String entityAsString) {
+                    public Person convertFrom(final byte[] entityAsBytes) {
                         return null;
                     }
                 });
@@ -89,14 +90,14 @@ final class StringHashValueRedisRepositoryTests extends RedisTestContainer {
     @Test
     void testNewInstanceWithNullJedisPool() {
         final var nullJedisPoolError = assertThrows(IllegalArgumentException.class, () ->
-                new StringHashValueRedisRepository<Person>((JedisPool) null, randomString()) {
+                new BaseBinaryHashValueRedisRepository<Person>((JedisPool) null, randomString()) {
                     @Override
-                    public String convertTo(final Person entity) {
+                    public byte[] convertTo(final Person entity) {
                         return null;
                     }
 
                     @Override
-                    public Person convertFrom(final String entityAsString) {
+                    public Person convertFrom(final byte[] entityAsBytes) {
                         return null;
                     }
                 });
@@ -106,28 +107,28 @@ final class StringHashValueRedisRepositoryTests extends RedisTestContainer {
     @Test
     void testNewInstanceWithValidJedisAndInvalidCollectionKey() {
         final var nullCollectionKeyError = assertThrows(IllegalArgumentException.class, () ->
-                new StringHashValueRedisRepository<Person>(jedis, null) {
+                new BaseBinaryHashValueRedisRepository<Person>(jedis, null) {
                     @Override
-                    public String convertTo(final Person entity) {
+                    public byte[] convertTo(final Person entity) {
                         return null;
                     }
 
                     @Override
-                    public Person convertFrom(final String entityAsString) {
+                    public Person convertFrom(final byte[] entityAsBytes) {
                         return null;
                     }
                 });
         assertEquals("parentKey cannot be null, nor empty!", nullCollectionKeyError.getMessage());
 
         final var emptyCollectionKeyError = assertThrows(IllegalArgumentException.class, () ->
-                new StringHashValueRedisRepository<Person>(jedis, "") {
+                new BaseBinaryHashValueRedisRepository<Person>(jedis, "") {
                     @Override
-                    public String convertTo(final Person entity) {
+                    public byte[] convertTo(final Person entity) {
                         return null;
                     }
 
                     @Override
-                    public Person convertFrom(final String entityAsString) {
+                    public Person convertFrom(final byte[] entityAsBytes) {
                         return null;
                     }
                 });
@@ -135,14 +136,14 @@ final class StringHashValueRedisRepositoryTests extends RedisTestContainer {
 
         final var invalidCollectionKey = randomString() + ":" + randomString();
         final var invalidCollectionKeyError = assertThrows(IllegalArgumentException.class, () ->
-                new StringHashValueRedisRepository<Person>(jedis, invalidCollectionKey) {
+                new BaseBinaryHashValueRedisRepository<Person>(jedis, invalidCollectionKey) {
                     @Override
-                    public String convertTo(final Person entity) {
+                    public byte[] convertTo(final Person entity) {
                         return null;
                     }
 
                     @Override
-                    public Person convertFrom(final String entityAsString) {
+                    public Person convertFrom(final byte[] entityAsBytes) {
                         return null;
                     }
                 });
@@ -152,28 +153,28 @@ final class StringHashValueRedisRepositoryTests extends RedisTestContainer {
     @Test
     void testNewInstanceWithValidJedisPoolAndInvalidCollectionKey() {
         final var nullCollectionKeyError = assertThrows(IllegalArgumentException.class, () ->
-                new StringHashValueRedisRepository<Person>(jedisPool, null) {
+                new BaseBinaryHashValueRedisRepository<Person>(jedisPool, null) {
                     @Override
-                    public String convertTo(final Person entity) {
+                    public byte[] convertTo(final Person entity) {
                         return null;
                     }
 
                     @Override
-                    public Person convertFrom(final String entityAsString) {
+                    public Person convertFrom(final byte[] entityAsBytes) {
                         return null;
                     }
                 });
         assertEquals("parentKey cannot be null, nor empty!", nullCollectionKeyError.getMessage());
 
         final var emptyCollectionKeyError = assertThrows(IllegalArgumentException.class, () ->
-                new StringHashValueRedisRepository<Person>(jedisPool, "") {
+                new BaseBinaryHashValueRedisRepository<Person>(jedisPool, "") {
                     @Override
-                    public String convertTo(final Person entity) {
+                    public byte[] convertTo(final Person entity) {
                         return null;
                     }
 
                     @Override
-                    public Person convertFrom(final String entityAsString) {
+                    public Person convertFrom(final byte[] entityAsBytes) {
                         return null;
                     }
                 });
@@ -181,14 +182,14 @@ final class StringHashValueRedisRepositoryTests extends RedisTestContainer {
 
         final var invalidCollectionKey = randomString() + ":" + randomString();
         final var invalidCollectionKeyError = assertThrows(IllegalArgumentException.class, () ->
-                new StringHashValueRedisRepository<Person>(jedisPool, invalidCollectionKey) {
+                new BaseBinaryHashValueRedisRepository<Person>(jedisPool, invalidCollectionKey) {
                     @Override
-                    public String convertTo(final Person entity) {
+                    public byte[] convertTo(final Person entity) {
                         return null;
                     }
 
                     @Override
-                    public Person convertFrom(final String entityAsString) {
+                    public Person convertFrom(final byte[] entityAsBytes) {
                         return null;
                     }
                 });
@@ -217,7 +218,7 @@ final class StringHashValueRedisRepositoryTests extends RedisTestContainer {
     @Test
     void testGetEmptyEntity() {
         final var expectedPerson = Person.random();
-        jedis.set("people:" + expectedPerson.getId(), "");
+        jedis.hset("people", expectedPerson.getId(), "");
         final var actualResult = repository.get(randomString());
         assertTrue(actualResult.isEmpty());
     }
@@ -582,12 +583,12 @@ final class StringHashValueRedisRepositoryTests extends RedisTestContainer {
     }
 
     private void insert(final Person person) {
-        jedis.hset("people", person.getId(), repository.convertTo(person));
+        jedis.hset(SafeEncoder.encode("people"), SafeEncoder.encode(person.getId()), repository.convertTo(person));
     }
 
     private Optional<Person> get(final String id) {
-        final var entity = jedis.hget("people", id);
-        return isNullOrEmptyOrBlank(entity) ? Optional.empty() : Optional.of(repository.convertFrom(entity));
+        final var entity = jedis.hget(SafeEncoder.encode("people"), SafeEncoder.encode(id));
+        return isNullOrEmpty(entity) ? Optional.empty() : Optional.of(repository.convertFrom(entity));
     }
 
     private String randomString() {

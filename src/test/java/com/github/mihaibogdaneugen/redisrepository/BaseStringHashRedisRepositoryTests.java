@@ -14,14 +14,14 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import static com.github.mihaibogdaneugen.redisrepository.BaseRedisRepository.isNullOrEmpty;
+import static com.github.mihaibogdaneugen.redisrepository.RedisRepository.isNullOrEmpty;
 import static org.junit.jupiter.api.Assertions.*;
 
-final class StringHashRedisRepositoryTests extends RedisTestContainer {
+final class BaseStringHashRedisRepositoryTests extends RedisTestContainer {
 
     static Jedis jedis;
     static JedisPool jedisPool;
-    static StringHashRedisRepository<Person> repository;
+    static BaseStringHashRedisRepository<Person> repository;
 
     @BeforeAll
     static void beforeAll() {
@@ -29,7 +29,7 @@ final class StringHashRedisRepositoryTests extends RedisTestContainer {
                 REDIS_CONTAINER.getContainerIpAddress(),
                 REDIS_CONTAINER.getMappedPort(REDIS_PORT));
         jedis = jedisPool.getResource();
-        repository = new StringHashRedisRepository<>(jedis, "people") {
+        repository = new BaseStringHashRedisRepository<>(jedis, "people") {
 
             @Override
             public Map<String, String> convertTo(final Person person) {
@@ -80,7 +80,7 @@ final class StringHashRedisRepositoryTests extends RedisTestContainer {
     @Test
     void testNewInstanceWithNullJedis() {
         final var nullJedisError = assertThrows(IllegalArgumentException.class, () ->
-                new StringHashRedisRepository<Person>((Jedis) null, randomString()) {
+                new BaseStringHashRedisRepository<Person>((Jedis) null, randomString()) {
                     @Override
                     public Map<String, String> convertTo(final Person entity) {
                         return null;
@@ -97,7 +97,7 @@ final class StringHashRedisRepositoryTests extends RedisTestContainer {
     @Test
     void testNewInstanceWithNullJedisPool() {
         final var nullJedisPoolError = assertThrows(IllegalArgumentException.class, () ->
-                new StringHashRedisRepository<Person>((JedisPool) null, randomString()) {
+                new BaseStringHashRedisRepository<Person>((JedisPool) null, randomString()) {
                     @Override
                     public Map<String, String> convertTo(final Person entity) {
                         return null;
@@ -114,7 +114,7 @@ final class StringHashRedisRepositoryTests extends RedisTestContainer {
     @Test
     void testNewInstanceWithValidJedisAndInvalidCollectionKey() {
         final var nullCollectionKeyError = assertThrows(IllegalArgumentException.class, () ->
-                new StringHashRedisRepository<Person>(jedis, null) {
+                new BaseStringHashRedisRepository<Person>(jedis, null) {
                     @Override
                     public Map<String, String> convertTo(final Person entity) {
                         return null;
@@ -128,7 +128,7 @@ final class StringHashRedisRepositoryTests extends RedisTestContainer {
         assertEquals("collectionKey cannot be null, nor empty!", nullCollectionKeyError.getMessage());
 
         final var emptyCollectionKeyError = assertThrows(IllegalArgumentException.class, () ->
-                new StringHashRedisRepository<Person>(jedis, "") {
+                new BaseStringHashRedisRepository<Person>(jedis, "") {
                     @Override
                     public Map<String, String> convertTo(final Person entity) {
                         return null;
@@ -143,7 +143,7 @@ final class StringHashRedisRepositoryTests extends RedisTestContainer {
 
         final var invalidCollectionKey = randomString() + ":" + randomString();
         final var invalidCollectionKeyError = assertThrows(IllegalArgumentException.class, () ->
-                new StringHashRedisRepository<Person>(jedis, invalidCollectionKey) {
+                new BaseStringHashRedisRepository<Person>(jedis, invalidCollectionKey) {
                     @Override
                     public Map<String, String> convertTo(final Person entity) {
                         return null;
@@ -160,7 +160,7 @@ final class StringHashRedisRepositoryTests extends RedisTestContainer {
     @Test
     void testNewInstanceWithValidJedisPoolAndInvalidCollectionKey() {
         final var nullCollectionKeyError = assertThrows(IllegalArgumentException.class, () ->
-                new StringHashRedisRepository<Person>(jedisPool, null) {
+                new BaseStringHashRedisRepository<Person>(jedisPool, null) {
                     @Override
                     public Map<String, String> convertTo(final Person entity) {
                         return null;
@@ -174,7 +174,7 @@ final class StringHashRedisRepositoryTests extends RedisTestContainer {
         assertEquals("collectionKey cannot be null, nor empty!", nullCollectionKeyError.getMessage());
 
         final var emptyCollectionKeyError = assertThrows(IllegalArgumentException.class, () ->
-                new StringHashRedisRepository<Person>(jedisPool, "") {
+                new BaseStringHashRedisRepository<Person>(jedisPool, "") {
                     @Override
                     public Map<String, String> convertTo(final Person entity) {
                         return null;
@@ -189,7 +189,7 @@ final class StringHashRedisRepositoryTests extends RedisTestContainer {
 
         final var invalidCollectionKey = randomString() + ":" + randomString();
         final var invalidCollectionKeyError = assertThrows(IllegalArgumentException.class, () ->
-                new StringHashRedisRepository<Person>(jedisPool, invalidCollectionKey) {
+                new BaseStringHashRedisRepository<Person>(jedisPool, invalidCollectionKey) {
                     @Override
                     public Map<String, String> convertTo(final Person entity) {
                         return null;

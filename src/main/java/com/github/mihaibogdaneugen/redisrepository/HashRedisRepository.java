@@ -5,7 +5,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
-public interface HashRedisRepository<T, SerializationType> {
+interface HashRedisRepository<T, SerializationType> {
 
     Map<SerializationType, SerializationType> convertTo(final T entity);
 
@@ -98,14 +98,14 @@ public interface HashRedisRepository<T, SerializationType> {
      * @param id The String identifier of the entity
      * @param fieldAndValue A Map.Entry pair of a field and value, serialized as String objects
      */
-    void setField(final String id, final Map.Entry<String, String> fieldAndValue);
+    void setField(final String id, final Map.Entry<SerializationType, SerializationType> fieldAndValue);
 
     /**
      * Inserts a specific field of an entity identified by the given identifier, only if it does not exist.
      * @param id The String identifier of the entity
      * @param fieldAndValue A Map.Entry pair of a field and value, serialized as String objects
      */
-    void setFieldIfNotExists(final String id, final Map.Entry<String, String> fieldAndValue);
+    void setFieldIfNotExists(final String id, final Map.Entry<SerializationType, SerializationType> fieldAndValue);
 
     /**
      * Sets the expiration after the given number of milliseconds for the entity with the given identifier.
