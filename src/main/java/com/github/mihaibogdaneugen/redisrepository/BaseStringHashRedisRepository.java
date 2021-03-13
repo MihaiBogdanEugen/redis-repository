@@ -93,7 +93,7 @@ public abstract class BaseStringHashRedisRepository<T>
      */
     @Override
     public final List<T> get(final String... ids) {
-        throwIfNullOrEmpty(ids);
+        throwIfNullOrEmpty(ids, "ids");
         final var keys = getKeys(ids);
         return getByKeys(keys);
     }
@@ -303,7 +303,7 @@ public abstract class BaseStringHashRedisRepository<T>
      */
     @Override
     public final void delete(final String... ids) {
-        throwIfNullOrEmpty(ids);
+        throwIfNullOrEmpty(ids, "ids");
         final var keys = getKeys(ids);
         jedis.del(keys);
     }

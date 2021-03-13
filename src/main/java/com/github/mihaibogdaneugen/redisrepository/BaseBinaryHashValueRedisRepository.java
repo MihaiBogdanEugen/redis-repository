@@ -82,7 +82,7 @@ public abstract class BaseBinaryHashValueRedisRepository<T>
      */
     @Override
     public final List<T> get(final String... ids) {
-        throwIfNullOrEmpty(ids);
+        throwIfNullOrEmpty(ids, "ids");
         final var entities = jedis.hmget(parentKey, getKeys(ids));
         return entities.stream()
                 .filter(RedisRepository::isNotNullNorEmpty)
@@ -202,7 +202,7 @@ public abstract class BaseBinaryHashValueRedisRepository<T>
      */
     @Override
     public final void delete(final String... ids) {
-        throwIfNullOrEmpty(ids);
+        throwIfNullOrEmpty(ids, "ids");
         jedis.hdel(parentKey, getKeys(ids));
     }
 

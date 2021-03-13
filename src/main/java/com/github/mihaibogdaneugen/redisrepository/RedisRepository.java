@@ -2,11 +2,12 @@ package com.github.mihaibogdaneugen.redisrepository;
 
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
+import redis.clients.jedis.commands.ScriptingCommands;
 
 import java.util.List;
 import java.util.Map;
 
-abstract class RedisRepository implements AutoCloseable {
+abstract class RedisRepository implements AutoCloseable, ScriptingCommands {
 
     protected static final String DEFAULT_KEY_SEPARATOR = ":";
 
@@ -24,11 +25,69 @@ abstract class RedisRepository implements AutoCloseable {
 
     @Override
     public final void close() {
-        try {
-            jedis.close();
-        } catch (final Exception exception) {
-            //ignore
-        }
+        jedis.close();
+    }
+
+    @Override
+    public final Object eval(final String script, final int keyCount, final String... params) {
+        throwIfNullOrEmptyOrBlank(script, "script");
+        throwIfNegative(keyCount, "keyCount");
+        throwIfNullOrEmpty(params, "params");
+        return jedis.eval(script, keyCount, params);
+    }
+
+    @Override
+    public final Object eval(final String script, final List<String> keys, final List<String> args) {
+        throwIfNullOrEmptyOrBlank(script, "script");
+        throwIfNull(keys, "keys");
+        throwIfNull(args, "args");
+        return jedis.eval(script, keys, args);
+    }
+
+    @Override
+    public final Object eval(final String script) {
+        throwIfNullOrEmptyOrBlank(script, "script");
+        return jedis.eval(script);
+    }
+
+    @Override
+    public final Object evalsha(final String sha1) {
+        throwIfNullOrEmptyOrBlank(sha1, "sha1");
+        return jedis.evalsha(sha1);
+    }
+
+    @Override
+    public final Object evalsha(final String sha1, final List<String> keys, final List<String> args) {
+        throwIfNullOrEmptyOrBlank(sha1, "sha1");
+        throwIfNull(keys, "keys");
+        throwIfNull(args, "args");
+        return jedis.evalsha(sha1, keys, args);
+    }
+
+    @Override
+    public final Object evalsha(final String sha1, final int keyCount, final String... params) {
+        throwIfNullOrEmptyOrBlank(sha1, "sha1");
+        throwIfNegative(keyCount, "keyCount");
+        throwIfNullOrEmpty(params, "params");
+        return jedis.evalsha(sha1, keyCount, params);
+    }
+
+    @Override
+    public final Boolean scriptExists(final String sha1) {
+        throwIfNullOrEmptyOrBlank(sha1, "sha1");
+        return jedis.scriptExists(sha1);
+    }
+
+    @Override
+    public final List<Boolean> scriptExists(final String... sha1) {
+        throwIfNullOrEmpty(sha1, "sha1");
+        return jedis.scriptExists(sha1);
+    }
+
+    @Override
+    public final String scriptLoad(final String script) {
+        throwIfNullOrEmptyOrBlank(script, "script");
+        return jedis.scriptLoad(script);
     }
 
     protected static <T> void throwIfNull(final T object, final String valueName) {
@@ -37,9 +96,9 @@ abstract class RedisRepository implements AutoCloseable {
         }
     }
 
-    protected static void throwIfNullOrEmpty(final String[] strings) {
+    protected static void throwIfNullOrEmpty(final String[] strings, final String valueName) {
         if (isNullOrEmpty(strings)) {
-            throw new IllegalArgumentException("ids cannot be null, nor empty!");
+            throw new IllegalArgumentException(valueName + " cannot be null, nor empty!");
         }
     }
 

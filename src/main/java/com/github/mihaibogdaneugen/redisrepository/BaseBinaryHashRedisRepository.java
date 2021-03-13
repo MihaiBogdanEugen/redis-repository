@@ -62,20 +62,6 @@ public abstract class BaseBinaryHashRedisRepository<T>
         allKeysPattern = SafeEncoder.encode(collectionKey + DEFAULT_KEY_SEPARATOR + "*");
     }
 
-//    /**
-//     * Converts the given entity to a Map of binary values.
-//     * @param entity The entity to be converted
-//     * @return A Map of binary values
-//     */
-//    public abstract Map<byte[], byte[]> convertTo(final T entity);
-//
-//    /**
-//     * Converts back the given Map of binary values to an entity.
-//     * @param entityAsMap The Map of binary values representation of the entity
-//     * @return An entity object
-//     */
-//    public abstract T convertFrom(final Map<byte[], byte[]> entityAsMap);
-
     /**
      * Retrieves the entity with the given identifier.<br/>
      * Note: This method calls the HGETALL Redis command.
@@ -108,7 +94,7 @@ public abstract class BaseBinaryHashRedisRepository<T>
      */
     @Override
     public final List<T> get(final String... ids) {
-        throwIfNullOrEmpty(ids);
+        throwIfNullOrEmpty(ids, "ids");
         final var keys = getKeys(ids);
         return getByKeys(keys);
     }
@@ -318,7 +304,7 @@ public abstract class BaseBinaryHashRedisRepository<T>
      */
     @Override
     public final void delete(final String... ids) {
-        throwIfNullOrEmpty(ids);
+        throwIfNullOrEmpty(ids, "ids");
         final var keys = getKeys(ids);
         jedis.del(keys);
     }
