@@ -372,6 +372,46 @@ final class BaseStringHashRedisRepositoryTests extends RedisTestContainer {
     }
 
     @Test
+    void testSetIfExistsInvalidArgumentId() {
+        final var person = Person.random();
+        final var nullIdError = assertThrows(IllegalArgumentException.class, () ->
+                repository.setIfExist(null, person));
+        assertEquals("id cannot be null, nor empty!", nullIdError.getMessage());
+
+        final var emptyIdError = assertThrows(IllegalArgumentException.class, () ->
+                repository.setIfExist("", person));
+        assertEquals("id cannot be null, nor empty!", emptyIdError.getMessage());
+    }
+
+    @Test
+    void testSetIfExistsNullArgumentEntity() {
+        final var person = Person.random();
+        final var nullPersonError = assertThrows(IllegalArgumentException.class, () ->
+                repository.setIfExist(person.getId(), null));
+        assertEquals("entity cannot be null!", nullPersonError.getMessage());
+    }
+
+    @Test
+    void testSetIfExistsNonExisting() {
+        final var expectedPerson = Person.random();
+        repository.setIfExist(expectedPerson.getId(), expectedPerson);
+        final var actualPerson = get(expectedPerson.getId());
+        assertTrue(actualPerson.isEmpty());
+    }
+
+    @Test
+    void testSetIfExistsReplace() {
+        final var oldPerson = Person.random();
+        insert(oldPerson);
+        final var expectedPerson = Person.random();
+        expectedPerson.setId(oldPerson.getId());
+        repository.setIfExist(expectedPerson.getId(), expectedPerson);
+        final var actualPerson = get(expectedPerson.getId());
+        assertTrue(actualPerson.isPresent());
+        assertEquals(expectedPerson, actualPerson.get());
+    }
+
+    @Test
     void testSetIfNotExistsInvalidArgumentId() {
         final var person = Person.random();
         final var nullIdError = assertThrows(IllegalArgumentException.class, () ->
@@ -718,9 +758,9 @@ final class BaseStringHashRedisRepositoryTests extends RedisTestContainer {
     void testGetTimeToLiveLeft() {
         final var person = Person.random();
         insert(person);
-        jedis.pexpire("people:" + person.getId(), 500);
+        jedis.pexpire("people:" + person.getId(), 1000);
         final var ttl = repository.getTimeToLiveLeft(person.getId());
-        assertTrue(0 < ttl && ttl < 500);
+        assertTrue(0 < ttl && ttl < 1000);
         repository.getTimeToLiveLeft(randomString()); //does not fail for non existing entities
     }
 
