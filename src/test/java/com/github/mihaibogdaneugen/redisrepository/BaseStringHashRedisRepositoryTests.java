@@ -636,6 +636,95 @@ final class BaseStringHashRedisRepositoryTests extends RedisTestContainer {
     }
 
     @Test
+    void testSetExpirationAfterInvalidArgumentId() {
+        final var nullIdError = assertThrows(IllegalArgumentException.class, () ->
+                repository.setExpirationAfter(null, 1000));
+        assertEquals("id cannot be null, nor empty!", nullIdError.getMessage());
+
+        final var emptyIdError = assertThrows(IllegalArgumentException.class, () ->
+                repository.setExpirationAfter("", 1000));
+        assertEquals("id cannot be null, nor empty!", emptyIdError.getMessage());
+    }
+
+    @Test
+    void testSetExpirationAfterInvalidArgumentMilliseconds() {
+        final var invalidMillisecondsError = assertThrows(IllegalArgumentException.class, () ->
+                repository.setExpirationAfter(randomString(), -1));
+        assertEquals("milliseconds cannot have a negative value!", invalidMillisecondsError.getMessage());
+    }
+
+    @Test
+    void testSetExpirationAfter() throws InterruptedException {
+        final var person1 = Person.random();
+        insert(person1);
+        final var person2 = Person.random();
+        insert(person2);
+        repository.setExpirationAfter(person2.getId(), 500);
+        Thread.sleep(500);
+        final var result1 = get(person1.getId());
+        assertTrue(result1.isPresent());
+        assertEquals(person1, result1.get());
+        final var result2 = get(person2.getId());
+        assertTrue(result2.isEmpty());
+        repository.setExpirationAfter(randomString(), 500); //does not fail for non existing entities
+    }
+
+    @Test
+    void testSetExpirationAtInvalidArgumentId() {
+        final var nullIdError = assertThrows(IllegalArgumentException.class, () ->
+                repository.setExpirationAt(null, 1000));
+        assertEquals("id cannot be null, nor empty!", nullIdError.getMessage());
+
+        final var emptyIdError = assertThrows(IllegalArgumentException.class, () ->
+                repository.setExpirationAt("", 1000));
+        assertEquals("id cannot be null, nor empty!", emptyIdError.getMessage());
+    }
+
+    @Test
+    void testSetExpirationAtInvalidArgumentMilliseconds() {
+        final var invalidMillisecondsError = assertThrows(IllegalArgumentException.class, () ->
+                repository.setExpirationAt(randomString(), -1));
+        assertEquals("millisecondsTimestamp cannot have a negative value!", invalidMillisecondsError.getMessage());
+    }
+
+    @Test
+    void testSetExpirationAt() throws InterruptedException {
+        final var person1 = Person.random();
+        insert(person1);
+        final var person2 = Person.random();
+        insert(person2);
+        repository.setExpirationAt(person2.getId(), System.currentTimeMillis() + 500);
+        Thread.sleep(500);
+        final var result1 = get(person1.getId());
+        assertTrue(result1.isPresent());
+        assertEquals(person1, result1.get());
+        final var result2 = get(person2.getId());
+        assertTrue(result2.isEmpty());
+        repository.setExpirationAt(randomString(), System.currentTimeMillis()); //does not fail for non existing entities
+    }
+
+    @Test
+    void testGetTimeToLiveLeftInvalidArgumentId() {
+        final var nullIdError = assertThrows(IllegalArgumentException.class, () ->
+                repository.getTimeToLiveLeft(null));
+        assertEquals("id cannot be null, nor empty!", nullIdError.getMessage());
+
+        final var emptyIdError = assertThrows(IllegalArgumentException.class, () ->
+                repository.getTimeToLiveLeft(""));
+        assertEquals("id cannot be null, nor empty!", emptyIdError.getMessage());
+    }
+
+    @Test
+    void testGetTimeToLiveLeft() {
+        final var person = Person.random();
+        insert(person);
+        jedis.pexpire("people:" + person.getId(), 500);
+        final var ttl = repository.getTimeToLiveLeft(person.getId());
+        assertTrue(0 < ttl && ttl < 500);
+        repository.getTimeToLiveLeft(randomString()); //does not fail for non existing entities
+    }
+
+    @Test
     void testGetAllKeys() {
         final var noKeys = repository.getAllKeys();
         assertTrue(noKeys.isEmpty());
