@@ -1,78 +1,89 @@
 package com.github.mihaibogdaneugen.redisrepository;
 
+import redis.clients.jedis.Jedis;
+import redis.clients.jedis.JedisPool;
+
 import java.util.List;
-import java.util.Optional;
-import java.util.function.Function;
+import java.util.Map;
 
-/**
- * Behaviour of a typed RedisRepository
- * @param <T> The type of the entity
- */
-public interface RedisRepository<T> {
+abstract class RedisRepository implements AutoCloseable {
 
-    /**
-     * Retrieves the entity with the given identifier.<br/>
-     * @param id The String identifier of the entity
-     * @return Optional object, empty if no such entity is found, or the object otherwise
-     */
-    Optional<T> get(final String id);
+    protected static final String DEFAULT_KEY_SEPARATOR = ":";
 
-    /**
-     * Retrieves the entities with the given identifiers.<br/>
-     * @param ids The array of Strings identifiers of entities
-     * @return A list of entities
-     */
-    List<T> get(final String... ids);
+    protected final Jedis jedis;
 
-    /**
-     * Retrieves all entities from the current collection.<br/>
-     * @return A list of entities
-     */
-    List<T> getAll();
+    public RedisRepository(final Jedis jedis) {
+        throwIfNull(jedis, "jedis");
+        this.jedis = jedis;
+    }
 
-    /**
-     * Checks if the entity with the specified identifier exists in the repository or not.<br/>
-     * @param id The String identifier of the entity
-     * @return A Boolean object, true if it exists, false otherwise
-     */
-    Boolean exists(final String id);
+    public RedisRepository(final JedisPool jedisPool) {
+        throwIfNull(jedisPool, "jedisPool");
+        this.jedis = jedisPool.getResource();
+    }
 
-    /**
-     * Replaces (or inserts) the given entity with the specified identifier.<br/>
-     * @param id The String identifier of the entity
-     * @param entity The entity to be set
-     */
-    void set(final String id, final T entity);
+    @Override
+    public final void close() {
+        try {
+            jedis.close();
+        } catch (final Exception exception) {
+            //ignore
+        }
+    }
 
-    /**
-     * Inserts the given entity with the specified identifier, only if it does not exist.<br/>
-     * @param id The String identifier of the entity
-     * @param entity The entity to be set
-     */
-    void setIfNotExist(final String id, final T entity);
+    protected static <T> void throwIfNull(final T object, final String valueName) {
+        if (object == null) {
+            throw new IllegalArgumentException(valueName + " cannot be null!");
+        }
+    }
 
-    /**
-     * Updates the entity with the specified identifier by calling the `updater` function.<br/>
-     * @param id The String identifier of the entity
-     * @param updater A function that updates the entity
-     * @return Optional object, empty if no such entity exists, or boolean value indicating the status of the transaction
-     */
-    Optional<Boolean> update(final String id, final Function<T, T> updater);
+    protected static void throwIfNullOrEmpty(final String[] strings) {
+        if (isNullOrEmpty(strings)) {
+            throw new IllegalArgumentException("ids cannot be null, nor empty!");
+        }
+    }
 
-    /**
-     * Removes the entity with the given identifier.<br/>
-     * @param id The String identifier of the entity
-     */
-    void delete(final String id);
+    protected static void throwIfNullOrEmptyOrBlank(final String value, final String valueName) {
+        if (isNullOrEmptyOrBlank(value)) {
+            throw new IllegalArgumentException(valueName + " cannot be null, nor empty!");
+        }
+    }
 
-    /**
-     * Removes all entities with the given identifiers.<br/>
-     * @param ids The array of Strings identifiers of entities
-     */
-    void delete(final String... ids);
+    protected static void throwIfNegative(final long value, final String valueName) {
+        if (value < 0) {
+            throw new IllegalArgumentException(valueName + " cannot have a negative value!");
+        }
+    }
 
-    /**
-     * Removes all entities from the current collection.<br/>
-     */
-    void deleteAll();
+    protected static boolean isNullOrEmpty(final byte[] bytes) {
+        return bytes == null || bytes.length == 0;
+    }
+
+    protected static boolean isNullOrEmpty(final String[] strings) {
+        return strings == null || strings.length == 0;
+    }
+
+    protected static <T> boolean isNotNullNorEmpty(final List<T> list) {
+        return list != null && !list.isEmpty();
+    }
+
+    protected static <T> boolean isNotNullNorEmpty(final Map<T, T> map) {
+        return map != null && !map.isEmpty();
+    }
+
+    protected static <T> boolean isNullOrEmpty(final Map<T, T> map) {
+        return map == null || map.isEmpty();
+    }
+
+    protected static boolean isNullOrEmptyOrBlank(final String text) {
+        return text == null || text.isEmpty() || text.isBlank();
+    }
+
+    protected static boolean isNotNullNorEmptyNorBlank(final String text) {
+        return !isNullOrEmptyOrBlank(text);
+    }
+
+    protected static boolean isNotNullNorEmpty(final byte[] bytes) {
+        return !isNullOrEmpty(bytes);
+    }
 }

@@ -12,21 +12,19 @@ import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 
 import java.io.UncheckedIOException;
-import java.util.Optional;
-import java.util.Random;
-import java.util.UUID;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import static com.github.mihaibogdaneugen.redisrepository.BaseRedisRepository.isNullOrEmptyOrBlank;
+import static com.github.mihaibogdaneugen.redisrepository.RedisRepository.isNullOrEmptyOrBlank;
 import static org.junit.jupiter.api.Assertions.*;
 
-final class StringHashValueRedisRepositoryTests extends RedisTestContainer {
+final class BaseStringValueRedisRepositoryTests extends RedisTestContainer {
 
     static Jedis jedis;
     static JedisPool jedisPool;
-    static StringHashValueRedisRepository<Person> repository;
+    static BaseStringValueRedisRepository<Person> repository;
 
     @BeforeAll
     static void beforeAll() {
@@ -34,7 +32,7 @@ final class StringHashValueRedisRepositoryTests extends RedisTestContainer {
                 REDIS_CONTAINER.getContainerIpAddress(),
                 REDIS_CONTAINER.getMappedPort(REDIS_PORT));
         jedis = jedisPool.getResource();
-        repository = new StringHashValueRedisRepository<>(jedis, "people") {
+        repository = new BaseStringValueRedisRepository<>(jedis, "people") {
             final ObjectMapper objectMapper = new ObjectMapper()
                     .registerModule(new JavaTimeModule())
                     .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
@@ -52,7 +50,7 @@ final class StringHashValueRedisRepositoryTests extends RedisTestContainer {
             public Person convertFrom(final String entity) {
                 try {
                     return objectMapper.readValue(entity, Person.class);
-                } catch (final JsonProcessingException e) {
+                } catch (JsonProcessingException e) {
                     throw new UncheckedIOException(e);
                 }
             }
@@ -72,7 +70,7 @@ final class StringHashValueRedisRepositoryTests extends RedisTestContainer {
     @Test
     void testNewInstanceWithNullJedis() {
         final var nullJedisError = assertThrows(IllegalArgumentException.class, () ->
-                new StringHashValueRedisRepository<Person>((Jedis) null, randomString()) {
+                new BaseStringValueRedisRepository<Person>((Jedis) null, randomString()) {
                     @Override
                     public String convertTo(final Person entity) {
                         return null;
@@ -89,7 +87,7 @@ final class StringHashValueRedisRepositoryTests extends RedisTestContainer {
     @Test
     void testNewInstanceWithNullJedisPool() {
         final var nullJedisPoolError = assertThrows(IllegalArgumentException.class, () ->
-                new StringHashValueRedisRepository<Person>((JedisPool) null, randomString()) {
+                new BaseStringValueRedisRepository<Person>((JedisPool) null, randomString()) {
                     @Override
                     public String convertTo(final Person entity) {
                         return null;
@@ -106,7 +104,7 @@ final class StringHashValueRedisRepositoryTests extends RedisTestContainer {
     @Test
     void testNewInstanceWithValidJedisAndInvalidCollectionKey() {
         final var nullCollectionKeyError = assertThrows(IllegalArgumentException.class, () ->
-                new StringHashValueRedisRepository<Person>(jedis, null) {
+                new BaseStringValueRedisRepository<Person>(jedis, null) {
                     @Override
                     public String convertTo(final Person entity) {
                         return null;
@@ -117,10 +115,10 @@ final class StringHashValueRedisRepositoryTests extends RedisTestContainer {
                         return null;
                     }
                 });
-        assertEquals("parentKey cannot be null, nor empty!", nullCollectionKeyError.getMessage());
+        assertEquals("collectionKey cannot be null, nor empty!", nullCollectionKeyError.getMessage());
 
         final var emptyCollectionKeyError = assertThrows(IllegalArgumentException.class, () ->
-                new StringHashValueRedisRepository<Person>(jedis, "") {
+                new BaseStringValueRedisRepository<Person>(jedis, "") {
                     @Override
                     public String convertTo(final Person entity) {
                         return null;
@@ -131,11 +129,11 @@ final class StringHashValueRedisRepositoryTests extends RedisTestContainer {
                         return null;
                     }
                 });
-        assertEquals("parentKey cannot be null, nor empty!", emptyCollectionKeyError.getMessage());
+        assertEquals("collectionKey cannot be null, nor empty!", emptyCollectionKeyError.getMessage());
 
         final var invalidCollectionKey = randomString() + ":" + randomString();
         final var invalidCollectionKeyError = assertThrows(IllegalArgumentException.class, () ->
-                new StringHashValueRedisRepository<Person>(jedis, invalidCollectionKey) {
+                new BaseStringValueRedisRepository<Person>(jedis, invalidCollectionKey) {
                     @Override
                     public String convertTo(final Person entity) {
                         return null;
@@ -146,13 +144,13 @@ final class StringHashValueRedisRepositoryTests extends RedisTestContainer {
                         return null;
                     }
                 });
-        assertEquals("Parent key `" + invalidCollectionKey + "` cannot contain `:`, nor `_lock`!", invalidCollectionKeyError.getMessage());
+        assertEquals("Collection key `" + invalidCollectionKey + "` cannot contain `:`", invalidCollectionKeyError.getMessage());
     }
 
     @Test
     void testNewInstanceWithValidJedisPoolAndInvalidCollectionKey() {
         final var nullCollectionKeyError = assertThrows(IllegalArgumentException.class, () ->
-                new StringHashValueRedisRepository<Person>(jedisPool, null) {
+                new BaseStringValueRedisRepository<Person>(jedisPool, null) {
                     @Override
                     public String convertTo(final Person entity) {
                         return null;
@@ -163,10 +161,10 @@ final class StringHashValueRedisRepositoryTests extends RedisTestContainer {
                         return null;
                     }
                 });
-        assertEquals("parentKey cannot be null, nor empty!", nullCollectionKeyError.getMessage());
+        assertEquals("collectionKey cannot be null, nor empty!", nullCollectionKeyError.getMessage());
 
         final var emptyCollectionKeyError = assertThrows(IllegalArgumentException.class, () ->
-                new StringHashValueRedisRepository<Person>(jedisPool, "") {
+                new BaseStringValueRedisRepository<Person>(jedisPool, "") {
                     @Override
                     public String convertTo(final Person entity) {
                         return null;
@@ -177,11 +175,11 @@ final class StringHashValueRedisRepositoryTests extends RedisTestContainer {
                         return null;
                     }
                 });
-        assertEquals("parentKey cannot be null, nor empty!", emptyCollectionKeyError.getMessage());
+        assertEquals("collectionKey cannot be null, nor empty!", emptyCollectionKeyError.getMessage());
 
         final var invalidCollectionKey = randomString() + ":" + randomString();
         final var invalidCollectionKeyError = assertThrows(IllegalArgumentException.class, () ->
-                new StringHashValueRedisRepository<Person>(jedisPool, invalidCollectionKey) {
+                new BaseStringValueRedisRepository<Person>(jedisPool, invalidCollectionKey) {
                     @Override
                     public String convertTo(final Person entity) {
                         return null;
@@ -192,7 +190,7 @@ final class StringHashValueRedisRepositoryTests extends RedisTestContainer {
                         return null;
                     }
                 });
-        assertEquals("Parent key `" + invalidCollectionKey + "` cannot contain `:`, nor `_lock`!", invalidCollectionKeyError.getMessage());
+        assertEquals("Collection key `" + invalidCollectionKey + "` cannot contain `:`", invalidCollectionKeyError.getMessage());
     }
 
     @Test
@@ -466,6 +464,52 @@ final class StringHashValueRedisRepositoryTests extends RedisTestContainer {
     }
 
     @Test
+    void testUpdateTransactionalBehaviour() {
+        final var expectedPerson = Person.random();
+        insert(expectedPerson);
+        final var newFullName = randomString();
+        final var newFullName2 = randomString();
+        final var newHeightMeters = (150 + new Random().nextInt(50)) / 100f;
+        final var updater = new Function<Person, Person>() {
+            @Override
+            public Person apply(final Person x) {
+                try {
+                    Thread.sleep(1000);
+                } catch (final InterruptedException e) {
+                    //ignored
+                }
+                return new Person(
+                        x.getId(),
+                        newFullName,
+                        x.getDateOfBirth(),
+                        x.isMarried(),
+                        newHeightMeters,
+                        x.getEyeColor());
+            }
+        };
+        final var newExpectedPerson = new Person(
+                expectedPerson.getId(),
+                newFullName2,
+                expectedPerson.getDateOfBirth(),
+                expectedPerson.isMarried(),
+                expectedPerson.getHeightMeters(),
+                expectedPerson.getEyeColor());
+        new Timer().schedule(new TimerTask() {
+            @Override
+            public void run() {
+                insert(newExpectedPerson);
+            }
+        },100);
+        final var updateResult = repository.update(expectedPerson.getId(), updater);
+        assertTrue(updateResult.isPresent());
+        assertFalse(updateResult.get());
+        final var getResult = get(expectedPerson.getId());
+        assertTrue(getResult.isPresent());
+        assertNotEquals(expectedPerson, getResult.get());
+        assertEquals(newExpectedPerson, getResult.get());
+    }
+
+    @Test
     void testDeleteInvalidArgument() {
         final var nullIdError = assertThrows(IllegalArgumentException.class, () ->
                 repository.delete((String)null));
@@ -582,11 +626,11 @@ final class StringHashValueRedisRepositoryTests extends RedisTestContainer {
     }
 
     private void insert(final Person person) {
-        jedis.hset("people", person.getId(), repository.convertTo(person));
+        jedis.set("people:" + person.getId(), repository.convertTo(person));
     }
 
     private Optional<Person> get(final String id) {
-        final var entity = jedis.hget("people", id);
+        final var entity = jedis.get("people:" + id);
         return isNullOrEmptyOrBlank(entity) ? Optional.empty() : Optional.of(repository.convertFrom(entity));
     }
 

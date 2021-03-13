@@ -1,5 +1,9 @@
 package com.github.mihaibogdaneugen.redisrepository;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -7,21 +11,20 @@ import org.junit.jupiter.api.Test;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.util.*;
-import java.util.function.Function;
+import java.io.UncheckedIOException;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import static com.github.mihaibogdaneugen.redisrepository.BaseRedisRepository.isNullOrEmpty;
+import static com.github.mihaibogdaneugen.redisrepository.RedisRepository.isNullOrEmptyOrBlank;
 import static org.junit.jupiter.api.Assertions.*;
 
-final class StringHashRedisRepositoryTests extends RedisTestContainer {
+final class BaseStringHashValueRedisRepositoryTests extends RedisTestContainer {
 
     static Jedis jedis;
     static JedisPool jedisPool;
-    static StringHashRedisRepository<Person> repository;
+    static BaseStringHashValueRedisRepository<Person> repository;
 
     @BeforeAll
     static void beforeAll() {
@@ -29,40 +32,27 @@ final class StringHashRedisRepositoryTests extends RedisTestContainer {
                 REDIS_CONTAINER.getContainerIpAddress(),
                 REDIS_CONTAINER.getMappedPort(REDIS_PORT));
         jedis = jedisPool.getResource();
-        repository = new StringHashRedisRepository<>(jedis, "people") {
+        repository = new BaseStringHashValueRedisRepository<>(jedis, "people") {
+            final ObjectMapper objectMapper = new ObjectMapper()
+                    .registerModule(new JavaTimeModule())
+                    .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
             @Override
-            public Map<String, String> convertTo(final Person person) {
-                final var fields = new HashMap<String, String>();
-                Optional.ofNullable(person.getId())
-                        .ifPresent(value -> fields.put("id", value));
-                Optional.ofNullable(person.getFullName())
-                        .ifPresent(value -> fields.put("fullName", value));
-                Optional.ofNullable(person.getDateOfBirth())
-                        .ifPresent(value -> fields.put("dateOfBirth", value.format(DateTimeFormatter.ISO_LOCAL_DATE)));
-                fields.put("isMarried", Boolean.toString(person.isMarried()));
-                if (person.getHeightMeters() > 0) {
-                    fields.put("heightMeters", Float.toString(person.getHeightMeters()));
+            public String convertTo(final Person person) {
+                try {
+                    return objectMapper.writeValueAsString(person);
+                } catch (final JsonProcessingException e) {
+                    throw new UncheckedIOException(e);
                 }
-                fields.put("eyeColor", person.getEyeColor().name());
-                return fields;
             }
 
             @Override
-            public Person convertFrom(final Map<String, String> fields) {
-                final var person = new Person();
-                Optional.ofNullable(fields.get("id"))
-                        .ifPresent(person::setId);
-                Optional.ofNullable(fields.get("fullName"))
-                        .ifPresent(person::setFullName);
-                Optional.ofNullable(fields.get("dateOfBirth"))
-                        .ifPresent(value -> person.setDateOfBirth(LocalDate.parse(value, DateTimeFormatter.ISO_LOCAL_DATE)));
-                person.setMarried(Boolean.parseBoolean(fields.get("isMarried")));
-                Optional.ofNullable(fields.get("heightMeters"))
-                        .ifPresent(value -> person.setHeightMeters(Float.parseFloat(value)));
-                Optional.ofNullable(fields.get("eyeColor"))
-                        .ifPresent(value -> person.setEyeColor(Person.EyeColor.valueOf(value)));
-                return person;
+            public Person convertFrom(final String entity) {
+                try {
+                    return objectMapper.readValue(entity, Person.class);
+                } catch (final JsonProcessingException e) {
+                    throw new UncheckedIOException(e);
+                }
             }
         };
     }
@@ -80,14 +70,14 @@ final class StringHashRedisRepositoryTests extends RedisTestContainer {
     @Test
     void testNewInstanceWithNullJedis() {
         final var nullJedisError = assertThrows(IllegalArgumentException.class, () ->
-                new StringHashRedisRepository<Person>((Jedis) null, randomString()) {
+                new BaseStringHashValueRedisRepository<Person>((Jedis) null, randomString()) {
                     @Override
-                    public Map<String, String> convertTo(final Person entity) {
+                    public String convertTo(final Person entity) {
                         return null;
                     }
 
                     @Override
-                    public Person convertFrom(final Map<String, String> entityAsMap) {
+                    public Person convertFrom(final String entityAsString) {
                         return null;
                     }
                 });
@@ -97,14 +87,14 @@ final class StringHashRedisRepositoryTests extends RedisTestContainer {
     @Test
     void testNewInstanceWithNullJedisPool() {
         final var nullJedisPoolError = assertThrows(IllegalArgumentException.class, () ->
-                new StringHashRedisRepository<Person>((JedisPool) null, randomString()) {
+                new BaseStringHashValueRedisRepository<Person>((JedisPool) null, randomString()) {
                     @Override
-                    public Map<String, String> convertTo(final Person entity) {
+                    public String convertTo(final Person entity) {
                         return null;
                     }
 
                     @Override
-                    public Person convertFrom(final Map<String, String> entityAsMap) {
+                    public Person convertFrom(final String entityAsString) {
                         return null;
                     }
                 });
@@ -114,93 +104,93 @@ final class StringHashRedisRepositoryTests extends RedisTestContainer {
     @Test
     void testNewInstanceWithValidJedisAndInvalidCollectionKey() {
         final var nullCollectionKeyError = assertThrows(IllegalArgumentException.class, () ->
-                new StringHashRedisRepository<Person>(jedis, null) {
+                new BaseStringHashValueRedisRepository<Person>(jedis, null) {
                     @Override
-                    public Map<String, String> convertTo(final Person entity) {
+                    public String convertTo(final Person entity) {
                         return null;
                     }
 
                     @Override
-                    public Person convertFrom(final Map<String, String> entityAsMap) {
+                    public Person convertFrom(final String entityAsString) {
                         return null;
                     }
                 });
-        assertEquals("collectionKey cannot be null, nor empty!", nullCollectionKeyError.getMessage());
+        assertEquals("parentKey cannot be null, nor empty!", nullCollectionKeyError.getMessage());
 
         final var emptyCollectionKeyError = assertThrows(IllegalArgumentException.class, () ->
-                new StringHashRedisRepository<Person>(jedis, "") {
+                new BaseStringHashValueRedisRepository<Person>(jedis, "") {
                     @Override
-                    public Map<String, String> convertTo(final Person entity) {
+                    public String convertTo(final Person entity) {
                         return null;
                     }
 
                     @Override
-                    public Person convertFrom(final Map<String, String> entityAsMap) {
+                    public Person convertFrom(final String entityAsString) {
                         return null;
                     }
                 });
-        assertEquals("collectionKey cannot be null, nor empty!", emptyCollectionKeyError.getMessage());
+        assertEquals("parentKey cannot be null, nor empty!", emptyCollectionKeyError.getMessage());
 
         final var invalidCollectionKey = randomString() + ":" + randomString();
         final var invalidCollectionKeyError = assertThrows(IllegalArgumentException.class, () ->
-                new StringHashRedisRepository<Person>(jedis, invalidCollectionKey) {
+                new BaseStringHashValueRedisRepository<Person>(jedis, invalidCollectionKey) {
                     @Override
-                    public Map<String, String> convertTo(final Person entity) {
+                    public String convertTo(final Person entity) {
                         return null;
                     }
 
                     @Override
-                    public Person convertFrom(final Map<String, String> entityAsMap) {
+                    public Person convertFrom(final String entityAsString) {
                         return null;
                     }
                 });
-        assertEquals("Collection key `" + invalidCollectionKey + "` cannot contain `:`", invalidCollectionKeyError.getMessage());
+        assertEquals("Parent key `" + invalidCollectionKey + "` cannot contain `:`, nor `_lock`!", invalidCollectionKeyError.getMessage());
     }
 
     @Test
     void testNewInstanceWithValidJedisPoolAndInvalidCollectionKey() {
         final var nullCollectionKeyError = assertThrows(IllegalArgumentException.class, () ->
-                new StringHashRedisRepository<Person>(jedisPool, null) {
+                new BaseStringHashValueRedisRepository<Person>(jedisPool, null) {
                     @Override
-                    public Map<String, String> convertTo(final Person entity) {
+                    public String convertTo(final Person entity) {
                         return null;
                     }
 
                     @Override
-                    public Person convertFrom(final Map<String, String> entityAsMap) {
+                    public Person convertFrom(final String entityAsString) {
                         return null;
                     }
                 });
-        assertEquals("collectionKey cannot be null, nor empty!", nullCollectionKeyError.getMessage());
+        assertEquals("parentKey cannot be null, nor empty!", nullCollectionKeyError.getMessage());
 
         final var emptyCollectionKeyError = assertThrows(IllegalArgumentException.class, () ->
-                new StringHashRedisRepository<Person>(jedisPool, "") {
+                new BaseStringHashValueRedisRepository<Person>(jedisPool, "") {
                     @Override
-                    public Map<String, String> convertTo(final Person entity) {
+                    public String convertTo(final Person entity) {
                         return null;
                     }
 
                     @Override
-                    public Person convertFrom(final Map<String, String> entityAsMap) {
+                    public Person convertFrom(final String entityAsString) {
                         return null;
                     }
                 });
-        assertEquals("collectionKey cannot be null, nor empty!", emptyCollectionKeyError.getMessage());
+        assertEquals("parentKey cannot be null, nor empty!", emptyCollectionKeyError.getMessage());
 
         final var invalidCollectionKey = randomString() + ":" + randomString();
         final var invalidCollectionKeyError = assertThrows(IllegalArgumentException.class, () ->
-                new StringHashRedisRepository<Person>(jedisPool, invalidCollectionKey) {
+                new BaseStringHashValueRedisRepository<Person>(jedisPool, invalidCollectionKey) {
                     @Override
-                    public Map<String, String> convertTo(final Person entity) {
+                    public String convertTo(final Person entity) {
                         return null;
                     }
 
                     @Override
-                    public Person convertFrom(final Map<String, String> entityAsMap) {
+                    public Person convertFrom(final String entityAsString) {
                         return null;
                     }
                 });
-        assertEquals("Collection key `" + invalidCollectionKey + "` cannot contain `:`", invalidCollectionKeyError.getMessage());
+        assertEquals("Parent key `" + invalidCollectionKey + "` cannot contain `:`, nor `_lock`!", invalidCollectionKeyError.getMessage());
     }
 
     @Test
@@ -225,7 +215,7 @@ final class StringHashRedisRepositoryTests extends RedisTestContainer {
     @Test
     void testGetEmptyEntity() {
         final var expectedPerson = Person.random();
-        jedis.set("people:" + expectedPerson.getId(), "");
+        jedis.hset("people", expectedPerson.getId(), "");
         final var actualResult = repository.get(randomString());
         assertTrue(actualResult.isEmpty());
     }
@@ -412,112 +402,66 @@ final class StringHashRedisRepositoryTests extends RedisTestContainer {
         assertEquals(expectedPerson, actualPerson.get());
     }
 
-    @Test
-    void testUpdateInvalidArgumentId() {
-        final var nullIdError = assertThrows(IllegalArgumentException.class, () ->
-                repository.update(null, person -> null));
-        assertEquals("id cannot be null, nor empty!", nullIdError.getMessage());
-
-        final var emptyIdError = assertThrows(IllegalArgumentException.class, () ->
-                repository.update("", person -> null));
-        assertEquals("id cannot be null, nor empty!", emptyIdError.getMessage());
-    }
-
-    @Test
-    void testUpdateNullUpdater() {
-        final var nullIdError = assertThrows(IllegalArgumentException.class, () ->
-                repository.update(randomString(), null));
-        assertEquals("updater cannot be null!", nullIdError.getMessage());
-    }
-
-    @Test
-    void testUpdateNonExistingEntity() {
-        final var person = Person.random();
-        final var updateResult = repository.update(person.getId(), x -> new Person(
-                x.getId(),
-                randomString(),
-                x.getDateOfBirth(),
-                x.isMarried(),
-                x.getHeightMeters(),
-                x.getEyeColor()
-        ));
-        assertTrue(updateResult.isEmpty());
-    }
-
-    @Test
-    void testUpdate() {
-        final var expectedPerson = Person.random();
-        insert(expectedPerson);
-        final var newFullName = randomString();
-        final var newHeightMeters = (150 + new Random().nextInt(50)) / 100f;
-        final var updater = new Function<Person, Person>() {
-            @Override
-            public Person apply(final Person x) {
-                return new Person(
-                        x.getId(),
-                        newFullName,
-                        x.getDateOfBirth(),
-                        x.isMarried(),
-                        newHeightMeters,
-                        x.getEyeColor());
-            }
-        };
-        final var updateResult = repository.update(expectedPerson.getId(), updater);
-        assertTrue(updateResult.isPresent());
-        assertTrue(updateResult.get());
-        final var getResult = get(expectedPerson.getId());
-        assertTrue(getResult.isPresent());
-        assertNotEquals(expectedPerson, getResult.get());
-        expectedPerson.setFullName(newFullName);
-        expectedPerson.setHeightMeters(newHeightMeters);
-        assertEquals(expectedPerson, getResult.get());
-    }
-
-    @Test
-    void testUpdateTransactionalBehaviour() {
-        final var expectedPerson = Person.random();
-        insert(expectedPerson);
-        final var newFullName = randomString();
-        final var newFullName2 = randomString();
-        final var newHeightMeters = (150 + new Random().nextInt(50)) / 100f;
-        final var updater = new Function<Person, Person>() {
-            @Override
-            public Person apply(final Person x) {
-                try {
-                    Thread.sleep(1000);
-                } catch (final InterruptedException e) {
-                    //ignored
-                }
-                return new Person(
-                        x.getId(),
-                        newFullName,
-                        x.getDateOfBirth(),
-                        x.isMarried(),
-                        newHeightMeters,
-                        x.getEyeColor());
-            }
-        };
-        final var newExpectedPerson = new Person(
-                expectedPerson.getId(),
-                newFullName2,
-                expectedPerson.getDateOfBirth(),
-                expectedPerson.isMarried(),
-                expectedPerson.getHeightMeters(),
-                expectedPerson.getEyeColor());
-        new Timer().schedule(new TimerTask() {
-            @Override
-            public void run() {
-                insert(newExpectedPerson);
-            }
-        },100);
-        final var updateResult = repository.update(expectedPerson.getId(), updater);
-        assertTrue(updateResult.isPresent());
-        assertFalse(updateResult.get());
-        final var getResult = get(expectedPerson.getId());
-        assertTrue(getResult.isPresent());
-        assertNotEquals(expectedPerson, getResult.get());
-        assertEquals(newExpectedPerson, getResult.get());
-    }
+//    @Test
+//    void testUpdateInvalidArgumentId() {
+//        final var nullIdError = assertThrows(IllegalArgumentException.class, () ->
+//                repository.update(null, person -> null));
+//        assertEquals("id cannot be null, nor empty!", nullIdError.getMessage());
+//
+//        final var emptyIdError = assertThrows(IllegalArgumentException.class, () ->
+//                repository.update("", person -> null));
+//        assertEquals("id cannot be null, nor empty!", emptyIdError.getMessage());
+//    }
+//
+//    @Test
+//    void testUpdateNullUpdater() {
+//        final var nullIdError = assertThrows(IllegalArgumentException.class, () ->
+//                repository.update(randomString(), null));
+//        assertEquals("updater cannot be null!", nullIdError.getMessage());
+//    }
+//
+//    @Test
+//    void testUpdateNonExistingEntity() {
+//        final var person = Person.random();
+//        final var updateResult = repository.update(person.getId(), x -> new Person(
+//                x.getId(),
+//                randomString(),
+//                x.getDateOfBirth(),
+//                x.isMarried(),
+//                x.getHeightMeters(),
+//                x.getEyeColor()
+//        ));
+//        assertTrue(updateResult.isEmpty());
+//    }
+//
+//    @Test
+//    void testUpdate() {
+//        final var expectedPerson = Person.random();
+//        insert(expectedPerson);
+//        final var newFullName = randomString();
+//        final var newHeightMeters = (150 + new Random().nextInt(50)) / 100f;
+//        final var updater = new Function<Person, Person>() {
+//            @Override
+//            public Person apply(final Person x) {
+//                return new Person(
+//                        x.getId(),
+//                        newFullName,
+//                        x.getDateOfBirth(),
+//                        x.isMarried(),
+//                        newHeightMeters,
+//                        x.getEyeColor());
+//            }
+//        };
+//        final var updateResult = repository.update(expectedPerson.getId(), updater);
+//        assertTrue(updateResult.isPresent());
+//        assertTrue(updateResult.get());
+//        final var getResult = get(expectedPerson.getId());
+//        assertTrue(getResult.isPresent());
+//        assertNotEquals(expectedPerson, getResult.get());
+//        expectedPerson.setFullName(newFullName);
+//        expectedPerson.setHeightMeters(newHeightMeters);
+//        assertEquals(expectedPerson, getResult.get());
+//    }
 
     @Test
     void testDeleteInvalidArgument() {
@@ -636,12 +580,12 @@ final class StringHashRedisRepositoryTests extends RedisTestContainer {
     }
 
     private void insert(final Person person) {
-        jedis.hset("people:" + person.getId(), repository.convertTo(person));
+        jedis.hset("people", person.getId(), repository.convertTo(person));
     }
 
     private Optional<Person> get(final String id) {
-        final var entity = jedis.hgetAll("people:" + id);
-        return isNullOrEmpty(entity) ? Optional.empty() : Optional.of(repository.convertFrom(entity));
+        final var entity = jedis.hget("people", id);
+        return isNullOrEmptyOrBlank(entity) ? Optional.empty() : Optional.of(repository.convertFrom(entity));
     }
 
     private String randomString() {
