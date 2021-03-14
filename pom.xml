@@ -6,8 +6,20 @@
     <groupId>com.github.mihaibogdaneugen.redisrepository</groupId>
     <artifactId>redis-repository</artifactId>
     <version>1.0-SNAPSHOT</version>
+    <packaging>jar</packaging>
     <name>redis-repository</name>
+    <description>Generic Redis repository that aims to simplify your data access layer code.</description>
     <url>https://github.com/MihaiBogdanEugen/redis-repository</url>
+    <licenses>
+        <license>
+            <name>MIT License</name>
+            <url>https://github.com/MihaiBogdanEugen/redis-repository/LICENSE</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+    <scm>
+        <url>git@github.com:MihaiBogdanEugen/redis-repository.git</url>
+    </scm>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <java.version>11</java.version>
