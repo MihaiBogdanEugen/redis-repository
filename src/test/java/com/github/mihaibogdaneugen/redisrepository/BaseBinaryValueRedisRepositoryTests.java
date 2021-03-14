@@ -833,7 +833,7 @@ final class BaseBinaryValueRedisRepositoryTests extends RedisTestContainer {
         final var person2 = Person.random();
         insert(person2);
         repository.setExpirationAfter(person2.getId(), 500);
-        Thread.sleep(500);
+        Thread.sleep(1000);
         final var result1 = get(person1.getId());
         assertTrue(result1.isPresent());
         assertEquals(person1, result1.get());
