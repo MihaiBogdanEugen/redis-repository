@@ -551,6 +551,147 @@ final class BaseStringValueRedisRepositoryTests extends RedisTestContainer {
     }
 
     @Test
+    void testConditionalUpdateInvalidArgumentId() {
+        final var nullIdError = assertThrows(IllegalArgumentException.class, () ->
+                repository.update(null, person -> Person.random(), person -> true));
+        assertEquals("id cannot be null, nor empty!", nullIdError.getMessage());
+
+        final var emptyIdError = assertThrows(IllegalArgumentException.class, () ->
+                repository.update(null, person -> null, person -> true));
+        assertEquals("id cannot be null, nor empty!", emptyIdError.getMessage());
+    }
+
+    @Test
+    void testConditionalUpdateNullUpdater() {
+        final var nullIdError = assertThrows(IllegalArgumentException.class, () ->
+                repository.update(randomString(), null, person -> true));
+        assertEquals("updater cannot be null!", nullIdError.getMessage());
+
+    }
+
+    @Test
+    void testConditionalUpdateNullConditioner() {
+        final var nullIdError = assertThrows(IllegalArgumentException.class, () ->
+                repository.update(randomString(), person -> Person.random(), null));
+        assertEquals("conditioner cannot be null!", nullIdError.getMessage());
+    }
+
+    @Test
+    void testConditionalUpdateNonExistingEntity() {
+        final var person = Person.random();
+        final var updateResult = repository.update(person.getId(), x -> new Person(
+                x.getId(),
+                randomString(),
+                x.getDateOfBirth(),
+                x.isMarried(),
+                x.getHeightMeters(),
+                x.getEyeColor()
+        ), anything -> true);
+        assertTrue(updateResult.isEmpty());
+    }
+
+    @Test
+    void testConditionalUpdate() {
+        final var expectedPerson = Person.random();
+        insert(expectedPerson);
+        final var newFullName = randomString();
+        final var newHeightMeters = (150 + new Random().nextInt(50)) / 100f;
+        final var updater = new Function<Person, Person>() {
+            @Override
+            public Person apply(final Person x) {
+                return new Person(
+                        x.getId(),
+                        newFullName,
+                        x.getDateOfBirth(),
+                        x.isMarried(),
+                        newHeightMeters,
+                        x.getEyeColor());
+            }
+        };
+        final var updateResult = repository.update(expectedPerson.getId(), updater, person -> person.getHeightMeters() > 1.0f);
+        assertTrue(updateResult.isPresent());
+        assertTrue(updateResult.get());
+        final var getResult = get(expectedPerson.getId());
+        assertTrue(getResult.isPresent());
+        assertNotEquals(expectedPerson, getResult.get());
+        expectedPerson.setFullName(newFullName);
+        expectedPerson.setHeightMeters(newHeightMeters);
+        assertEquals(expectedPerson, getResult.get());
+    }
+
+    @Test
+    void testConditionalUpdateFailedCondition() {
+        final var expectedPerson = Person.random();
+        insert(expectedPerson);
+        final var newFullName = randomString();
+        final var newHeightMeters = (150 + new Random().nextInt(50)) / 100f;
+        final var updater = new Function<Person, Person>() {
+            @Override
+            public Person apply(final Person x) {
+                return new Person(
+                        x.getId(),
+                        newFullName,
+                        x.getDateOfBirth(),
+                        x.isMarried(),
+                        newHeightMeters,
+                        x.getEyeColor());
+            }
+        };
+        final var updateResult = repository.update(expectedPerson.getId(), updater, person -> person.getHeightMeters() < 1.0f);
+        assertTrue(updateResult.isPresent());
+        assertTrue(updateResult.get());
+        final var getResult = get(expectedPerson.getId());
+        assertTrue(getResult.isPresent());
+        assertEquals(expectedPerson, getResult.get());
+    }
+
+    @Test
+    void testConditionalUpdateTransactionalBehaviour() {
+        final var expectedPerson = Person.random();
+        insert(expectedPerson);
+        final var newFullName = randomString();
+        final var newFullName2 = randomString();
+        final var newHeightMeters = (150 + new Random().nextInt(50)) / 100f;
+        final var updater = new Function<Person, Person>() {
+            @Override
+            public Person apply(final Person x) {
+                try {
+                    Thread.sleep(1000);
+                } catch (final InterruptedException e) {
+                    //ignored
+                }
+                return new Person(
+                        x.getId(),
+                        newFullName,
+                        x.getDateOfBirth(),
+                        x.isMarried(),
+                        newHeightMeters,
+                        x.getEyeColor());
+            }
+        };
+        final var newExpectedPerson = new Person(
+                expectedPerson.getId(),
+                newFullName2,
+                expectedPerson.getDateOfBirth(),
+                expectedPerson.isMarried(),
+                expectedPerson.getHeightMeters(),
+                expectedPerson.getEyeColor());
+        new Timer().schedule(new TimerTask() {
+            @Override
+            public void run() {
+                insert(newExpectedPerson);
+            }
+        },100);
+        final var updateResult = repository.update(expectedPerson.getId(), updater, person -> person.getHeightMeters() > 1.0f);
+        assertTrue(updateResult.isPresent());
+        assertFalse(updateResult.get());
+        final var getResult = get(expectedPerson.getId());
+        assertTrue(getResult.isPresent());
+        assertNotEquals(expectedPerson, getResult.get());
+        assertEquals(newExpectedPerson, getResult.get());
+    }
+
+    @Test
     void testDeleteInvalidArgument() {
         final var nullIdError = assertThrows(IllegalArgumentException.class, () ->
                 repository.delete((String)null));
@@ -750,7 +891,7 @@ final class BaseStringValueRedisRepositoryTests extends RedisTestContainer {
         final var person = Person.random();
         jedis.set("people:" + person.getId(), repository.convertTo(person), SetParams.setParams().px(1000));
         final var ttl = repository.getTimeToLiveLeft(person.getId());
-        assertTrue(0 < ttl && ttl < 1000);
+        assertTrue(0 <= ttl && ttl <= 1000);
         repository.getTimeToLiveLeft(randomString()); //does not fail for non existing entities
     }
 
