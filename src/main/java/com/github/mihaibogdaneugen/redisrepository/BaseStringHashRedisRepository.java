@@ -2,8 +2,10 @@ package com.github.mihaibogdaneugen.redisrepository;
 
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.Response;
+import redis.clients.jedis.exceptions.JedisException;
 
 import java.util.*;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -28,14 +30,30 @@ public abstract class BaseStringHashRedisRepository<T>
     private final String allKeysPattern;
 
     /**
-     * Builds a BaseStringHashRedisRepository, based around a jedisPool object, for a specific collection.<br/>
-     * A Jedis object will be retrieved from the JedisPool by calling `.getResource()` and it will<br/>
-     * be closed should `.close()` be called.
+     * Builds a BaseStringHashRedisRepository, based on a jedisPool object, for a specific collection.<br/>
+     * For every operation, a Jedis object is retrieved from the pool and closed at the end.
      * @param jedisPool The JedisPool object
      * @param collectionKey The name (key) of the collection
      */
     public BaseStringHashRedisRepository(final JedisPool jedisPool, final String collectionKey) {
         super(jedisPool);
+        throwIfNullOrEmptyOrBlank(collectionKey, "collectionKey");
+        if (collectionKey.contains(DEFAULT_KEY_SEPARATOR)) {
+            throw new IllegalArgumentException("Collection key `" + collectionKey + "` cannot contain `" + DEFAULT_KEY_SEPARATOR + "`");
+        }
+        keyPrefix = collectionKey + DEFAULT_KEY_SEPARATOR;
+        allKeysPattern = collectionKey + DEFAULT_KEY_SEPARATOR + "*";
+    }
+
+    /**
+     * Builds a BaseStringHashRedisRepository, based on a jedisPool object, for a specific collection, with an interceptor for JedisExceptions.<br/>
+     * For every operation, a Jedis object is retrieved from the pool and closed at the end.
+     * @param jedisPool The JedisPool object
+     * @param collectionKey The name (key) of the collection
+     * @param jedisExceptionInterceptor Consumer of errors of type JedisException
+     */
+    public BaseStringHashRedisRepository(final JedisPool jedisPool, final String collectionKey, final Consumer<JedisException> jedisExceptionInterceptor) {
+        super(jedisPool, jedisExceptionInterceptor);
         throwIfNullOrEmptyOrBlank(collectionKey, "collectionKey");
         if (collectionKey.contains(DEFAULT_KEY_SEPARATOR)) {
             throw new IllegalArgumentException("Collection key `" + collectionKey + "` cannot contain `" + DEFAULT_KEY_SEPARATOR + "`");

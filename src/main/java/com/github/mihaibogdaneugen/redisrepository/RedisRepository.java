@@ -3,6 +3,7 @@ package com.github.mihaibogdaneugen.redisrepository;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.commands.ScriptingCommands;
+import redis.clients.jedis.exceptions.JedisException;
 
 import java.util.List;
 import java.util.Map;
@@ -14,18 +15,30 @@ abstract class RedisRepository implements ScriptingCommands {
     protected static final String DEFAULT_KEY_SEPARATOR = ":";
 
     protected final JedisPool jedisPool;
-    protected final Consumer<Exception> exceptionHandler;
+    protected final Consumer<JedisException> jedisExceptionInterceptor;
 
     public RedisRepository(final JedisPool jedisPool) {
         throwIfNull(jedisPool, "jedisPool");
         this.jedisPool = jedisPool;
-        this.exceptionHandler = null;
+        this.jedisExceptionInterceptor = null;
+    }
+
+    public RedisRepository(final JedisPool jedisPool, final Consumer<JedisException> jedisExceptionInterceptor) {
+        throwIfNull(jedisPool, "jedisPool");
+        throwIfNull(jedisExceptionInterceptor, "jedisExceptionInterceptor");
+        this.jedisPool = jedisPool;
+        this.jedisExceptionInterceptor = jedisExceptionInterceptor;
     }
 
     protected <T> T getResult(final Function<Jedis, T> operation) {
         throwIfNull(operation, "operation");
         try (final var jedis = jedisPool.getResource()) {
             return operation.apply(jedis);
+        } catch (final JedisException exception) {
+            if (jedisExceptionInterceptor != null) {
+                jedisExceptionInterceptor.accept(exception);
+            }
+            throw exception;
         }
     }
 
@@ -33,6 +46,11 @@ abstract class RedisRepository implements ScriptingCommands {
         throwIfNull(operation, "operation");
         try (final var jedis = jedisPool.getResource()) {
             operation.accept(jedis);
+        } catch (final JedisException exception) {
+            if (jedisExceptionInterceptor != null) {
+                jedisExceptionInterceptor.accept(exception);
+            }
+            throw exception;
         }
     }
 

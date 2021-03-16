@@ -8,6 +8,8 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.params.SetParams;
@@ -24,6 +26,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 final class BaseBinaryValueRedisRepositoryTests extends RedisTestContainer {
 
+    static final Logger logger = LoggerFactory.getLogger(BaseBinaryValueRedisRepositoryTests.class);
+
     static Jedis jedis;
     static JedisPool jedisPool;
     static BaseBinaryValueRedisRepository<Person> repository;
@@ -34,7 +38,7 @@ final class BaseBinaryValueRedisRepositoryTests extends RedisTestContainer {
                 REDIS_CONTAINER.getContainerIpAddress(),
                 REDIS_CONTAINER.getMappedPort(REDIS_PORT));
         jedis = jedisPool.getResource();
-        repository = new BaseBinaryValueRedisRepository<>(jedisPool, "people") {
+        repository = new BaseBinaryValueRedisRepository<>(jedisPool, "people", jedisException -> logger.error(jedisException.getMessage(), jedisException)) {
             final ObjectMapper objectMapper = new ObjectMapper()
                     .registerModule(new JavaTimeModule())
                     .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
@@ -87,7 +91,7 @@ final class BaseBinaryValueRedisRepositoryTests extends RedisTestContainer {
     }
 
     @Test
-    void testNewInstanceWithValidJedisPoolAndInvalidCollectionKey() {
+    void testNewInstanceWithInvalidCollectionKey() {
         final var nullCollectionKeyError = assertThrows(IllegalArgumentException.class, () ->
                 new BaseBinaryValueRedisRepository<Person>(jedisPool, null) {
                     @Override
@@ -130,6 +134,23 @@ final class BaseBinaryValueRedisRepositoryTests extends RedisTestContainer {
                     }
                 });
         assertEquals("Collection key `" + invalidCollectionKey + "` cannot contain `:`", invalidCollectionKeyError.getMessage());
+    }
+
+    @Test
+    void testNewInstanceWithNullJedisExceptionHandler() {
+        final var nullJedisPoolError = assertThrows(IllegalArgumentException.class, () ->
+                new BaseBinaryValueRedisRepository<Person>(jedisPool, randomString(), null) {
+                    @Override
+                    public byte[] convertTo(final Person entity) {
+                        return null;
+                    }
+
+                    @Override
+                    public Person convertFrom(final byte[] entityAsBytes) {
+                        return null;
+                    }
+                });
+        assertEquals("jedisExceptionInterceptor cannot be null!", nullJedisPoolError.getMessage());
     }
 
     @Test

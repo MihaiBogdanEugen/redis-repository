@@ -1,10 +1,12 @@
 package com.github.mihaibogdaneugen.redisrepository;
 
 import redis.clients.jedis.JedisPool;
+import redis.clients.jedis.exceptions.JedisException;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 /**
@@ -25,14 +27,29 @@ public abstract class BaseStringHashValueRedisRepository<T>
     private final String parentKey;
 
     /**
-     * Builds a BaseStringHashValueRedisRepository, based around a jedisPool object, for a specific collection.<br/>
-     * A Jedis object will be retrieved from the JedisPool by calling `.getResource()` and it will<br/>
-     * be closed should `.close()` be called.
+     * Builds a BaseStringHashValueRedisRepository, based on a jedisPool object, for a specific collection.<br/>
+     * For every operation, a Jedis object is retrieved from the pool and closed at the end.
      * @param jedisPool The JedisPool object
      * @param parentKey The name of the collection used as the parent key
      */
     public BaseStringHashValueRedisRepository(final JedisPool jedisPool, final String parentKey) {
         super(jedisPool);
+        throwIfNullOrEmptyOrBlank(parentKey, "parentKey");
+        if (parentKey.contains(DEFAULT_KEY_SEPARATOR)) {
+            throw new IllegalArgumentException("Parent key `" + parentKey + "` cannot contain `" + DEFAULT_KEY_SEPARATOR + "`!");
+        }
+        this.parentKey = parentKey;
+    }
+
+    /**
+     * Builds a BaseStringHashValueRedisRepository, based on a jedisPool object, for a specific collection, with an interceptor for JedisExceptions.<br/>
+     * For every operation, a Jedis object is retrieved from the pool and closed at the end.
+     * @param jedisPool The JedisPool object
+     * @param parentKey The name of the collection used as the parent key
+     * @param jedisExceptionInterceptor Consumer of errors of type JedisException
+     */
+    public BaseStringHashValueRedisRepository(final JedisPool jedisPool, final String parentKey, final Consumer<JedisException> jedisExceptionInterceptor) {
+        super(jedisPool, jedisExceptionInterceptor);
         throwIfNullOrEmptyOrBlank(parentKey, "parentKey");
         if (parentKey.contains(DEFAULT_KEY_SEPARATOR)) {
             throw new IllegalArgumentException("Parent key `" + parentKey + "` cannot contain `" + DEFAULT_KEY_SEPARATOR + "`!");
