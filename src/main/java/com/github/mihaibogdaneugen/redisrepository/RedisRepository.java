@@ -6,26 +6,34 @@ import redis.clients.jedis.commands.ScriptingCommands;
 
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
-abstract class RedisRepository implements AutoCloseable, ScriptingCommands {
+abstract class RedisRepository implements ScriptingCommands {
 
     protected static final String DEFAULT_KEY_SEPARATOR = ":";
 
-    protected final Jedis jedis;
-
-    public RedisRepository(final Jedis jedis) {
-        throwIfNull(jedis, "jedis");
-        this.jedis = jedis;
-    }
+    protected final JedisPool jedisPool;
+    protected final Consumer<Exception> exceptionHandler;
 
     public RedisRepository(final JedisPool jedisPool) {
         throwIfNull(jedisPool, "jedisPool");
-        this.jedis = jedisPool.getResource();
+        this.jedisPool = jedisPool;
+        this.exceptionHandler = null;
     }
 
-    @Override
-    public final void close() {
-        jedis.close();
+    protected <T> T getResult(final Function<Jedis, T> operation) {
+        throwIfNull(operation, "operation");
+        try (final var jedis = jedisPool.getResource()) {
+            return operation.apply(jedis);
+        }
+    }
+
+    protected void execute(final Consumer<Jedis> operation) {
+        throwIfNull(operation, "operation");
+        try (final var jedis = jedisPool.getResource()) {
+            operation.accept(jedis);
+        }
     }
 
     @Override
@@ -33,7 +41,7 @@ abstract class RedisRepository implements AutoCloseable, ScriptingCommands {
         throwIfNullOrEmptyOrBlank(script, "script");
         throwIfNegative(keyCount, "keyCount");
         throwIfNullOrEmpty(params, "params");
-        return jedis.eval(script, keyCount, params);
+        return getResult(jedis -> jedis.eval(script, keyCount, params));
     }
 
     @Override
@@ -41,19 +49,19 @@ abstract class RedisRepository implements AutoCloseable, ScriptingCommands {
         throwIfNullOrEmptyOrBlank(script, "script");
         throwIfNull(keys, "keys");
         throwIfNull(args, "args");
-        return jedis.eval(script, keys, args);
+        return getResult(jedis -> jedis.eval(script, keys, args));
     }
 
     @Override
     public final Object eval(final String script) {
         throwIfNullOrEmptyOrBlank(script, "script");
-        return jedis.eval(script);
+        return getResult(jedis -> jedis.eval(script));
     }
 
     @Override
     public final Object evalsha(final String sha1) {
         throwIfNullOrEmptyOrBlank(sha1, "sha1");
-        return jedis.evalsha(sha1);
+        return getResult(jedis -> jedis.evalsha(sha1));
     }
 
     @Override
@@ -61,7 +69,7 @@ abstract class RedisRepository implements AutoCloseable, ScriptingCommands {
         throwIfNullOrEmptyOrBlank(sha1, "sha1");
         throwIfNull(keys, "keys");
         throwIfNull(args, "args");
-        return jedis.evalsha(sha1, keys, args);
+        return getResult(jedis -> jedis.evalsha(sha1, keys, args));
     }
 
     @Override
@@ -69,25 +77,25 @@ abstract class RedisRepository implements AutoCloseable, ScriptingCommands {
         throwIfNullOrEmptyOrBlank(sha1, "sha1");
         throwIfNegative(keyCount, "keyCount");
         throwIfNullOrEmpty(params, "params");
-        return jedis.evalsha(sha1, keyCount, params);
+        return getResult(jedis -> jedis.evalsha(sha1, keyCount, params));
     }
 
     @Override
     public final Boolean scriptExists(final String sha1) {
         throwIfNullOrEmptyOrBlank(sha1, "sha1");
-        return jedis.scriptExists(sha1);
+        return getResult(jedis -> jedis.scriptExists(sha1));
     }
 
     @Override
     public final List<Boolean> scriptExists(final String... sha1) {
         throwIfNullOrEmpty(sha1, "sha1");
-        return jedis.scriptExists(sha1);
+        return getResult(jedis -> jedis.scriptExists(sha1));
     }
 
     @Override
     public final String scriptLoad(final String script) {
         throwIfNullOrEmptyOrBlank(script, "script");
-        return jedis.scriptLoad(script);
+        return getResult(jedis -> jedis.scriptLoad(script));
     }
 
     protected static <T> void throwIfNull(final T object, final String valueName) {

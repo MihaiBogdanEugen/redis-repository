@@ -33,7 +33,7 @@ final class BaseBinaryHashValueRedisRepositoryTests extends RedisTestContainer {
                 REDIS_CONTAINER.getContainerIpAddress(),
                 REDIS_CONTAINER.getMappedPort(REDIS_PORT));
         jedis = jedisPool.getResource();
-        repository = new BaseBinaryHashValueRedisRepository<>(jedis, "people") {
+        repository = new BaseBinaryHashValueRedisRepository<>(jedisPool, "people") {
             final ObjectMapper objectMapper = new ObjectMapper()
                     .registerModule(new JavaTimeModule())
                     .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
@@ -60,7 +60,7 @@ final class BaseBinaryHashValueRedisRepositoryTests extends RedisTestContainer {
 
     @AfterAll
     static void afterAll() {
-        repository.close();
+        jedis.close();
     }
 
     @BeforeEach
@@ -69,26 +69,9 @@ final class BaseBinaryHashValueRedisRepositoryTests extends RedisTestContainer {
     }
 
     @Test
-    void testNewInstanceWithNullJedis() {
-        final var nullJedisError = assertThrows(IllegalArgumentException.class, () ->
-                new BaseBinaryHashValueRedisRepository<Person>((Jedis) null, randomString()) {
-                    @Override
-                    public byte[] convertTo(final Person entity) {
-                        return null;
-                    }
-
-                    @Override
-                    public Person convertFrom(final byte[] entityAsBytes) {
-                        return null;
-                    }
-                });
-        assertEquals("jedis cannot be null!", nullJedisError.getMessage());
-    }
-
-    @Test
     void testNewInstanceWithNullJedisPool() {
         final var nullJedisPoolError = assertThrows(IllegalArgumentException.class, () ->
-                new BaseBinaryHashValueRedisRepository<Person>((JedisPool) null, randomString()) {
+                new BaseBinaryHashValueRedisRepository<Person>(null, randomString()) {
                     @Override
                     public byte[] convertTo(final Person entity) {
                         return null;
@@ -100,52 +83,6 @@ final class BaseBinaryHashValueRedisRepositoryTests extends RedisTestContainer {
                     }
                 });
         assertEquals("jedisPool cannot be null!", nullJedisPoolError.getMessage());
-    }
-
-    @Test
-    void testNewInstanceWithValidJedisAndInvalidCollectionKey() {
-        final var nullCollectionKeyError = assertThrows(IllegalArgumentException.class, () ->
-                new BaseBinaryHashValueRedisRepository<Person>(jedis, null) {
-                    @Override
-                    public byte[] convertTo(final Person entity) {
-                        return null;
-                    }
-
-                    @Override
-                    public Person convertFrom(final byte[] entityAsBytes) {
-                        return null;
-                    }
-                });
-        assertEquals("parentKey cannot be null, nor empty!", nullCollectionKeyError.getMessage());
-
-        final var emptyCollectionKeyError = assertThrows(IllegalArgumentException.class, () ->
-                new BaseBinaryHashValueRedisRepository<Person>(jedis, "") {
-                    @Override
-                    public byte[] convertTo(final Person entity) {
-                        return null;
-                    }
-
-                    @Override
-                    public Person convertFrom(final byte[] entityAsBytes) {
-                        return null;
-                    }
-                });
-        assertEquals("parentKey cannot be null, nor empty!", emptyCollectionKeyError.getMessage());
-
-        final var invalidCollectionKey = randomString() + ":" + randomString();
-        final var invalidCollectionKeyError = assertThrows(IllegalArgumentException.class, () ->
-                new BaseBinaryHashValueRedisRepository<Person>(jedis, invalidCollectionKey) {
-                    @Override
-                    public byte[] convertTo(final Person entity) {
-                        return null;
-                    }
-
-                    @Override
-                    public Person convertFrom(final byte[] entityAsBytes) {
-                        return null;
-                    }
-                });
-        assertEquals("Parent key `" + invalidCollectionKey + "` cannot contain `:`!", invalidCollectionKeyError.getMessage());
     }
 
     @Test

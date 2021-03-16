@@ -1,6 +1,5 @@
 package com.github.mihaibogdaneugen.redisrepository;
 
-import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.params.SetParams;
 
@@ -32,22 +31,6 @@ public abstract class BaseStringValueRedisRepository<T>
     private final String allKeysPattern;
 
     /**
-     * Builds a BaseStringValueRedisRepository, based around a Jedis object, for a specific collection.<br/>
-     * The provided Jedis object will be closed should `.close()` be called.
-     * @param jedis The Jedis object
-     * @param collectionKey The name (key) of the collection
-     */
-    public BaseStringValueRedisRepository(final Jedis jedis, final String collectionKey) {
-        super(jedis);
-        throwIfNullOrEmptyOrBlank(collectionKey, "collectionKey");
-        if (collectionKey.contains(DEFAULT_KEY_SEPARATOR)) {
-            throw new IllegalArgumentException("Collection key `" + collectionKey + "` cannot contain `" + DEFAULT_KEY_SEPARATOR + "`");
-        }
-        keyPrefix = collectionKey + DEFAULT_KEY_SEPARATOR;
-        allKeysPattern = collectionKey + DEFAULT_KEY_SEPARATOR + "*";
-    }
-
-    /**
      * Builds a BaseStringValueRedisRepository, based around a jedisPool object, for a specific collection.<br/>
      * A Jedis object will be retrieved from the JedisPool by calling `.getResource()` and it will<br/>
      * be closed should `.close()` be called.
@@ -75,10 +58,12 @@ public abstract class BaseStringValueRedisRepository<T>
     public final Optional<T> get(final String id) {
         throwIfNullOrEmptyOrBlank(id, "id");
         final var key = getKey(id);
-        final var entity = jedis.get(key);
-        return isNullOrEmptyOrBlank(entity)
-                ? Optional.empty()
-                : Optional.of(convertFrom(entity));
+        return getResult(jedis -> {
+            final var entity = jedis.get(key);
+            return isNullOrEmptyOrBlank(entity)
+                    ? Optional.empty()
+                    : Optional.of(convertFrom(entity));
+        });
     }
 
     /**
@@ -122,7 +107,7 @@ public abstract class BaseStringValueRedisRepository<T>
     public final Boolean exists(final String id) {
         throwIfNullOrEmptyOrBlank(id, "id");
         final var key = getKey(id);
-        return jedis.exists(key);
+        return getResult(jedis -> jedis.exists(key));
     }
 
     /**
@@ -137,7 +122,7 @@ public abstract class BaseStringValueRedisRepository<T>
         throwIfNullOrEmptyOrBlank(id, "id");
         throwIfNull(entity, "entity");
         final var key = getKey(id);
-        jedis.set(key, convertTo(entity));
+        execute(jedis -> jedis.set(key, convertTo(entity)));
     }
 
     /**
@@ -152,7 +137,7 @@ public abstract class BaseStringValueRedisRepository<T>
         throwIfNullOrEmptyOrBlank(id, "id");
         throwIfNull(entity, "entity");
         final var key = getKey(id);
-        jedis.set(key, convertTo(entity), SetParams.setParams().xx());
+        execute(jedis -> jedis.set(key, convertTo(entity), SetParams.setParams().xx()));
     }
 
     /**
@@ -167,7 +152,7 @@ public abstract class BaseStringValueRedisRepository<T>
         throwIfNullOrEmptyOrBlank(id, "id");
         throwIfNull(entity, "entity");
         final var key = getKey(id);
-        jedis.setnx(key, convertTo(entity));
+        execute(jedis -> jedis.setnx(key, convertTo(entity)));
     }
 
     /**
@@ -189,21 +174,23 @@ public abstract class BaseStringValueRedisRepository<T>
         throwIfNullOrEmptyOrBlank(id, "id");
         throwIfNull(updater, "updater");
         final var key = getKey(id);
-        jedis.watch(key);
-        final var value = jedis.get(key);
-        if (isNullOrEmptyOrBlank(value)) {
-            jedis.unwatch();
-            return Optional.empty();
-        }
-        final var entity = convertFrom(value);
-        final var newEntity = updater.apply(entity);
-        final var newValue = convertTo(newEntity);
-        final List<Object> results;
-        try (final var transaction = jedis.multi()) {
-            transaction.set(key, newValue);
-            results = transaction.exec();
-        }
-        return Optional.of(isNotNullNorEmpty(results));
+        return getResult(jedis -> {
+            jedis.watch(key);
+            final var value = jedis.get(key);
+            if (isNullOrEmptyOrBlank(value)) {
+                jedis.unwatch();
+                return Optional.empty();
+            }
+            final var entity = convertFrom(value);
+            final var newEntity = updater.apply(entity);
+            final var newValue = convertTo(newEntity);
+            final List<Object> results;
+            try (final var transaction = jedis.multi()) {
+                transaction.set(key, newValue);
+                results = transaction.exec();
+            }
+            return Optional.of(isNotNullNorEmpty(results));
+        });
     }
 
     /**
@@ -228,25 +215,27 @@ public abstract class BaseStringValueRedisRepository<T>
         throwIfNull(updater, "updater");
         throwIfNull(conditioner, "conditioner");
         final var key = getKey(id);
-        jedis.watch(key);
-        final var value = jedis.get(key);
-        if (isNullOrEmptyOrBlank(value)) {
-            jedis.unwatch();
-            return Optional.empty();
-        }
-        final var entity = convertFrom(value);
-        if (!conditioner.apply(entity)) {
-            jedis.unwatch();
-            return Optional.of(true);
-        }
-        final var newEntity = updater.apply(entity);
-        final var newValue = convertTo(newEntity);
-        final List<Object> results;
-        try (final var transaction = jedis.multi()) {
-            transaction.set(key, newValue);
-            results = transaction.exec();
-        }
-        return Optional.of(isNotNullNorEmpty(results));
+        return getResult(jedis -> {
+            jedis.watch(key);
+            final var value = jedis.get(key);
+            if (isNullOrEmptyOrBlank(value)) {
+                jedis.unwatch();
+                return Optional.empty();
+            }
+            final var entity = convertFrom(value);
+            if (!conditioner.apply(entity)) {
+                jedis.unwatch();
+                return Optional.of(true);
+            }
+            final var newEntity = updater.apply(entity);
+            final var newValue = convertTo(newEntity);
+            final List<Object> results;
+            try (final var transaction = jedis.multi()) {
+                transaction.set(key, newValue);
+                results = transaction.exec();
+            }
+            return Optional.of(isNotNullNorEmpty(results));
+        });
     }
 
     /**
@@ -259,7 +248,7 @@ public abstract class BaseStringValueRedisRepository<T>
     public final void delete(final String id) {
         throwIfNullOrEmptyOrBlank(id, "id");
         final var key = getKey(id);
-        jedis.del(key);
+        execute(jedis -> jedis.del(key));
     }
 
     /**
@@ -272,7 +261,7 @@ public abstract class BaseStringValueRedisRepository<T>
     public final void delete(final String... ids) {
         throwIfNullOrEmpty(ids, "ids");
         final var keys = getKeys(ids);
-        jedis.del(keys);
+        execute(jedis -> jedis.del(keys));
     }
 
     /**
@@ -287,7 +276,7 @@ public abstract class BaseStringValueRedisRepository<T>
     @Override
     public final void deleteAll() {
         final var keys = getAllKeysArray();
-        jedis.del(keys);
+        execute(jedis -> jedis.del(keys));
     }
 
     /**
@@ -302,7 +291,7 @@ public abstract class BaseStringValueRedisRepository<T>
         throwIfNullOrEmptyOrBlank(id, "id");
         throwIfNegative(milliseconds, "milliseconds");
         final var key = getKey(id);
-        jedis.pexpire(key, milliseconds);
+        execute(jedis -> jedis.pexpire(key, milliseconds));
     }
 
     /**
@@ -317,7 +306,7 @@ public abstract class BaseStringValueRedisRepository<T>
         throwIfNullOrEmptyOrBlank(id, "id");
         throwIfNegative(millisecondsTimestamp, "millisecondsTimestamp");
         final var key = getKey(id);
-        jedis.pexpireAt(key, millisecondsTimestamp);
+        execute(jedis -> jedis.pexpireAt(key, millisecondsTimestamp));
     }
 
     /**
@@ -331,7 +320,7 @@ public abstract class BaseStringValueRedisRepository<T>
     public final Long getTimeToLiveLeft(final String id) {
         throwIfNullOrEmptyOrBlank(id, "id");
         final var key = getKey(id);
-        return jedis.pttl(key);
+        return getResult(jedis -> jedis.pttl(key));
     }
 
     /**
@@ -342,7 +331,7 @@ public abstract class BaseStringValueRedisRepository<T>
      */
     @Override
     public final Set<String> getAllKeys() {
-        return jedis.keys(allKeysPattern);
+        return getResult(jedis -> jedis.keys(allKeysPattern));
     }
 
     private String getKey(final String keySuffix) {
@@ -357,11 +346,13 @@ public abstract class BaseStringValueRedisRepository<T>
     }
 
     private List<T> getByKeys(final String... keys) {
-        final var values = jedis.mget(keys);
-        return values.stream()
-                .filter(RedisRepository::isNotNullNorEmptyNorBlank)
-                .map(this::convertFrom)
-                .collect(Collectors.toList());
+        return getResult(jedis -> {
+            final var values = jedis.mget(keys);
+            return values.stream()
+                    .filter(RedisRepository::isNotNullNorEmptyNorBlank)
+                    .map(this::convertFrom)
+                    .collect(Collectors.toList());
+        });
     }
 
     private String[] getAllKeysArray() {

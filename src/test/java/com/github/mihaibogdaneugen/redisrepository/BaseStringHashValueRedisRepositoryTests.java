@@ -32,7 +32,7 @@ final class BaseStringHashValueRedisRepositoryTests extends RedisTestContainer {
                 REDIS_CONTAINER.getContainerIpAddress(),
                 REDIS_CONTAINER.getMappedPort(REDIS_PORT));
         jedis = jedisPool.getResource();
-        repository = new BaseStringHashValueRedisRepository<>(jedis, "people") {
+        repository = new BaseStringHashValueRedisRepository<>(jedisPool, "people") {
             final ObjectMapper objectMapper = new ObjectMapper()
                     .registerModule(new JavaTimeModule())
                     .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
@@ -59,7 +59,7 @@ final class BaseStringHashValueRedisRepositoryTests extends RedisTestContainer {
 
     @AfterAll
     static void afterAll() {
-        repository.close();
+        jedis.close();
     }
 
     @BeforeEach
@@ -68,26 +68,9 @@ final class BaseStringHashValueRedisRepositoryTests extends RedisTestContainer {
     }
 
     @Test
-    void testNewInstanceWithNullJedis() {
-        final var nullJedisError = assertThrows(IllegalArgumentException.class, () ->
-                new BaseStringHashValueRedisRepository<Person>((Jedis) null, randomString()) {
-                    @Override
-                    public String convertTo(final Person entity) {
-                        return null;
-                    }
-
-                    @Override
-                    public Person convertFrom(final String entityAsString) {
-                        return null;
-                    }
-                });
-        assertEquals("jedis cannot be null!", nullJedisError.getMessage());
-    }
-
-    @Test
     void testNewInstanceWithNullJedisPool() {
         final var nullJedisPoolError = assertThrows(IllegalArgumentException.class, () ->
-                new BaseStringHashValueRedisRepository<Person>((JedisPool) null, randomString()) {
+                new BaseStringHashValueRedisRepository<Person>(null, randomString()) {
                     @Override
                     public String convertTo(final Person entity) {
                         return null;
@@ -99,52 +82,6 @@ final class BaseStringHashValueRedisRepositoryTests extends RedisTestContainer {
                     }
                 });
         assertEquals("jedisPool cannot be null!", nullJedisPoolError.getMessage());
-    }
-
-    @Test
-    void testNewInstanceWithValidJedisAndInvalidCollectionKey() {
-        final var nullCollectionKeyError = assertThrows(IllegalArgumentException.class, () ->
-                new BaseStringHashValueRedisRepository<Person>(jedis, null) {
-                    @Override
-                    public String convertTo(final Person entity) {
-                        return null;
-                    }
-
-                    @Override
-                    public Person convertFrom(final String entityAsString) {
-                        return null;
-                    }
-                });
-        assertEquals("parentKey cannot be null, nor empty!", nullCollectionKeyError.getMessage());
-
-        final var emptyCollectionKeyError = assertThrows(IllegalArgumentException.class, () ->
-                new BaseStringHashValueRedisRepository<Person>(jedis, "") {
-                    @Override
-                    public String convertTo(final Person entity) {
-                        return null;
-                    }
-
-                    @Override
-                    public Person convertFrom(final String entityAsString) {
-                        return null;
-                    }
-                });
-        assertEquals("parentKey cannot be null, nor empty!", emptyCollectionKeyError.getMessage());
-
-        final var invalidCollectionKey = randomString() + ":" + randomString();
-        final var invalidCollectionKeyError = assertThrows(IllegalArgumentException.class, () ->
-                new BaseStringHashValueRedisRepository<Person>(jedis, invalidCollectionKey) {
-                    @Override
-                    public String convertTo(final Person entity) {
-                        return null;
-                    }
-
-                    @Override
-                    public Person convertFrom(final String entityAsString) {
-                        return null;
-                    }
-                });
-        assertEquals("Parent key `" + invalidCollectionKey + "` cannot contain `:`!", invalidCollectionKeyError.getMessage());
     }
 
     @Test

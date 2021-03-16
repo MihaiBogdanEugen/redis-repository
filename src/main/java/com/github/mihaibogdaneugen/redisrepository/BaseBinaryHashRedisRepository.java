@@ -1,6 +1,5 @@
 package com.github.mihaibogdaneugen.redisrepository;
 
-import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.Response;
 import redis.clients.jedis.util.SafeEncoder;
@@ -30,22 +29,6 @@ public abstract class BaseBinaryHashRedisRepository<T>
     private final byte[] allKeysPattern;
 
     /**
-     * Builds a BaseBinaryHashRedisRepository, based around a Jedis object, for a specific collection.<br/>
-     * The provided Jedis object will be closed should `.close()` be called.
-     * @param jedis The Jedis object
-     * @param collectionKey The name (key) of the collection
-     */
-    public BaseBinaryHashRedisRepository(final Jedis jedis, final String collectionKey) {
-        super(jedis);
-        throwIfNullOrEmptyOrBlank(collectionKey, "collectionKey");
-        if (collectionKey.contains(DEFAULT_KEY_SEPARATOR)) {
-            throw new IllegalArgumentException("Collection key `" + collectionKey + "` cannot contain `" + DEFAULT_KEY_SEPARATOR + "`");
-        }
-        keyPrefix = collectionKey + DEFAULT_KEY_SEPARATOR;
-        allKeysPattern = SafeEncoder.encode(collectionKey + DEFAULT_KEY_SEPARATOR + "*");
-    }
-
-    /**
      * Builds a BaseBinaryHashRedisRepository, based around a jedisPool object, for a specific collection.<br/>
      * A Jedis object will be retrieved from the JedisPool by calling `.getResource()` and it will<br/>
      * be closed should `.close()` be called.
@@ -73,10 +56,12 @@ public abstract class BaseBinaryHashRedisRepository<T>
     public final Optional<T> get(final String id) {
         throwIfNullOrEmptyOrBlank(id, "id");
         final var key = getKey(id);
-        final var entity = jedis.hgetAll(key);
-        return isNullOrEmpty(entity)
-                ? Optional.empty()
-                : Optional.of(convertFrom(entity));
+        return getResult(jedis -> {
+            final var entity = jedis.hgetAll(key);
+            return isNullOrEmpty(entity)
+                    ? Optional.empty()
+                    : Optional.of(convertFrom(entity));
+        });
     }
 
     /**
@@ -129,7 +114,7 @@ public abstract class BaseBinaryHashRedisRepository<T>
     public final Boolean exists(final String id) {
         throwIfNullOrEmptyOrBlank(id, "id");
         final var key = getKey(id);
-        return jedis.exists(key);
+        return getResult(jedis -> jedis.exists(key));
     }
 
     /**
@@ -144,7 +129,7 @@ public abstract class BaseBinaryHashRedisRepository<T>
         throwIfNullOrEmptyOrBlank(id, "id");
         throwIfNull(entity, "entity");
         final var key = getKey(id);
-        jedis.hset(key, convertTo(entity));
+        execute(jedis -> jedis.hset(key, convertTo(entity)));
     }
 
     /**
@@ -165,15 +150,17 @@ public abstract class BaseBinaryHashRedisRepository<T>
         throwIfNullOrEmptyOrBlank(id, "id");
         throwIfNull(entity, "entity");
         final var key = getKey(id);
-        jedis.watch(key);
-        if (!jedis.exists(key)) {
-            jedis.unwatch();
-            return;
-        }
-        try (final var transaction = jedis.multi()) {
-            transaction.hset(key, convertTo(entity));
-            transaction.exec();
-        }
+        execute(jedis -> {
+            jedis.watch(key);
+            if (!jedis.exists(key)) {
+                jedis.unwatch();
+                return;
+            }
+            try (final var transaction = jedis.multi()) {
+                transaction.hset(key, convertTo(entity));
+                transaction.exec();
+            }
+        });
     }
 
     /**
@@ -194,15 +181,18 @@ public abstract class BaseBinaryHashRedisRepository<T>
         throwIfNullOrEmptyOrBlank(id, "id");
         throwIfNull(entity, "entity");
         final var key = getKey(id);
-        jedis.watch(key);
-        if (jedis.exists(key)) {
-            jedis.unwatch();
-            return;
-        }
-        try (final var transaction = jedis.multi()) {
-            transaction.hset(key, convertTo(entity));
-            transaction.exec();
-        }
+        execute(jedis -> {
+            jedis.watch(key);
+            if (jedis.exists(key)) {
+                jedis.unwatch();
+                return;
+            }
+            try (final var transaction = jedis.multi()) {
+                transaction.hset(key, convertTo(entity));
+                transaction.exec();
+            }
+        });
+
     }
 
     /**
@@ -224,21 +214,23 @@ public abstract class BaseBinaryHashRedisRepository<T>
         throwIfNullOrEmptyOrBlank(id, "id");
         throwIfNull(updater, "updater");
         final var key = getKey(id);
-        jedis.watch(key);
-        final var value = jedis.hgetAll(key);
-        if (isNullOrEmpty(value)) {
-            jedis.unwatch();
-            return Optional.empty();
-        }
-        final var entity = convertFrom(value);
-        final var newEntity = updater.apply(entity);
-        final var newValue = convertTo(newEntity);
-        final List<Object> results;
-        try (final var transaction = jedis.multi()) {
-            transaction.hset(key, newValue);
-            results = transaction.exec();
-        }
-        return Optional.of(isNotNullNorEmpty(results));
+        return getResult(jedis -> {
+            jedis.watch(key);
+            final var value = jedis.hgetAll(key);
+            if (isNullOrEmpty(value)) {
+                jedis.unwatch();
+                return Optional.empty();
+            }
+            final var entity = convertFrom(value);
+            final var newEntity = updater.apply(entity);
+            final var newValue = convertTo(newEntity);
+            final List<Object> results;
+            try (final var transaction = jedis.multi()) {
+                transaction.hset(key, newValue);
+                results = transaction.exec();
+            }
+            return Optional.of(isNotNullNorEmpty(results));
+        });
     }
 
     /**
@@ -262,25 +254,27 @@ public abstract class BaseBinaryHashRedisRepository<T>
         throwIfNull(updater, "updater");
         throwIfNull(conditioner, "conditioner");
         final var key = getKey(id);
-        jedis.watch(key);
-        final var value = jedis.hgetAll(key);
-        if (isNullOrEmpty(value)) {
-            jedis.unwatch();
-            return Optional.empty();
-        }
-        final var entity = convertFrom(value);
-        if (!conditioner.apply(entity)) {
-            jedis.unwatch();
-            return Optional.of(true);
-        }
-        final var newEntity = updater.apply(entity);
-        final var newValue = convertTo(newEntity);
-        final List<Object> results;
-        try (final var transaction = jedis.multi()) {
-            transaction.hset(key, newValue);
-            results = transaction.exec();
-        }
-        return Optional.of(isNotNullNorEmpty(results));
+        return getResult(jedis -> {
+            jedis.watch(key);
+            final var value = jedis.hgetAll(key);
+            if (isNullOrEmpty(value)) {
+                jedis.unwatch();
+                return Optional.empty();
+            }
+            final var entity = convertFrom(value);
+            if (!conditioner.apply(entity)) {
+                jedis.unwatch();
+                return Optional.of(true);
+            }
+            final var newEntity = updater.apply(entity);
+            final var newValue = convertTo(newEntity);
+            final List<Object> results;
+            try (final var transaction = jedis.multi()) {
+                transaction.hset(key, newValue);
+                results = transaction.exec();
+            }
+            return Optional.of(isNotNullNorEmpty(results));
+        });
     }
 
     /**
@@ -293,7 +287,7 @@ public abstract class BaseBinaryHashRedisRepository<T>
     public final void delete(final String id) {
         throwIfNullOrEmptyOrBlank(id, "id");
         final var key = getKey(id);
-        jedis.del(key);
+        execute(jedis -> jedis.del(key));
     }
 
     /**
@@ -306,7 +300,7 @@ public abstract class BaseBinaryHashRedisRepository<T>
     public final void delete(final String... ids) {
         throwIfNullOrEmpty(ids, "ids");
         final var keys = getKeys(ids);
-        jedis.del(keys);
+        execute(jedis -> jedis.del(keys));
     }
 
     /**
@@ -321,7 +315,7 @@ public abstract class BaseBinaryHashRedisRepository<T>
     @Override
     public final void deleteAll() {
         final var keys = getAllKeysArray();
-        jedis.del(keys);
+        execute(jedis -> jedis.del(keys));
     }
 
     /**
@@ -336,7 +330,7 @@ public abstract class BaseBinaryHashRedisRepository<T>
         throwIfNullOrEmptyOrBlank(id, "id");
         throwIfNull(fieldAndValue, "fieldAndValue");
         final var key = getKey(id);
-        jedis.hset(key, fieldAndValue.getKey(), fieldAndValue.getValue());
+        execute(jedis -> jedis.hset(key, fieldAndValue.getKey(), fieldAndValue.getValue()));
     }
 
     /**
@@ -351,7 +345,7 @@ public abstract class BaseBinaryHashRedisRepository<T>
         throwIfNullOrEmptyOrBlank(id, "id");
         throwIfNull(fieldAndValue, "fieldAndValue");
         final var key = getKey(id);
-        jedis.hsetnx(key, fieldAndValue.getKey(), fieldAndValue.getValue());
+        execute(jedis -> jedis.hsetnx(key, fieldAndValue.getKey(), fieldAndValue.getValue()));
     }
 
     /**
@@ -366,7 +360,7 @@ public abstract class BaseBinaryHashRedisRepository<T>
         throwIfNullOrEmptyOrBlank(id, "id");
         throwIfNegative(milliseconds, "milliseconds");
         final var key = getKey(id);
-        jedis.pexpire(key, milliseconds);
+        execute(jedis -> jedis.pexpire(key, milliseconds));
     }
 
     /**
@@ -381,7 +375,7 @@ public abstract class BaseBinaryHashRedisRepository<T>
         throwIfNullOrEmptyOrBlank(id, "id");
         throwIfNegative(millisecondsTimestamp, "millisecondsTimestamp");
         final var key = getKey(id);
-        jedis.pexpireAt(key, millisecondsTimestamp);
+        execute(jedis -> jedis.pexpireAt(key, millisecondsTimestamp));
     }
 
     /**
@@ -395,7 +389,7 @@ public abstract class BaseBinaryHashRedisRepository<T>
     public final Long getTimeToLiveLeft(final String id) {
         throwIfNullOrEmptyOrBlank(id, "id");
         final var key = getKey(id);
-        return jedis.pttl(key);
+        return getResult(jedis -> jedis.pttl(key));
     }
 
     /**
@@ -406,20 +400,22 @@ public abstract class BaseBinaryHashRedisRepository<T>
      */
     @Override
     public final Set<String> getAllKeys() {
-        return jedis.keys(SafeEncoder.encode(allKeysPattern));
+        return getResult(jedis -> jedis.keys(SafeEncoder.encode(allKeysPattern)));
     }
 
     private List<T> getByKeys(final byte[]... keys) {
         final var responses = new ArrayList<Response<Map<byte[], byte[]>>>();
-        try (final var pipeline = jedis.pipelined()) {
-            Arrays.stream(keys).forEach(key -> responses.add(pipeline.hgetAll(key)));
-            pipeline.sync();
-        }
-        return responses.stream()
-                .map(Response::get)
-                .filter(RedisRepository::isNotNullNorEmpty)
-                .map(this::convertFrom)
-                .collect(Collectors.toList());
+        return getResult(jedis -> {
+            try (final var pipeline = jedis.pipelined()) {
+                Arrays.stream(keys).forEach(key -> responses.add(pipeline.hgetAll(key)));
+                pipeline.sync();
+            }
+            return responses.stream()
+                    .map(Response::get)
+                    .filter(RedisRepository::isNotNullNorEmpty)
+                    .map(this::convertFrom)
+                    .collect(Collectors.toList());
+        });
     }
 
     private byte[][] getKeys(final String... keySuffixes) {
@@ -434,6 +430,6 @@ public abstract class BaseBinaryHashRedisRepository<T>
     }
 
     private byte[][] getAllKeysArray() {
-        return jedis.keys(allKeysPattern).toArray(byte[][]::new);
+        return getResult(jedis -> jedis.keys(allKeysPattern).toArray(byte[][]::new));
     }
 }

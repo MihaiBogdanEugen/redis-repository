@@ -29,7 +29,7 @@ final class BaseStringHashRedisRepositoryTests extends RedisTestContainer {
                 REDIS_CONTAINER.getContainerIpAddress(),
                 REDIS_CONTAINER.getMappedPort(REDIS_PORT));
         jedis = jedisPool.getResource();
-        repository = new BaseStringHashRedisRepository<>(jedis, "people") {
+        repository = new BaseStringHashRedisRepository<>(jedisPool, "people") {
 
             @Override
             public Map<String, String> convertTo(final Person person) {
@@ -69,7 +69,7 @@ final class BaseStringHashRedisRepositoryTests extends RedisTestContainer {
 
     @AfterAll
     static void afterAll() {
-        repository.close();
+        jedis.close();
     }
 
     @BeforeEach
@@ -78,26 +78,9 @@ final class BaseStringHashRedisRepositoryTests extends RedisTestContainer {
     }
 
     @Test
-    void testNewInstanceWithNullJedis() {
-        final var nullJedisError = assertThrows(IllegalArgumentException.class, () ->
-                new BaseStringHashRedisRepository<Person>((Jedis) null, randomString()) {
-                    @Override
-                    public Map<String, String> convertTo(final Person entity) {
-                        return null;
-                    }
-
-                    @Override
-                    public Person convertFrom(final Map<String, String> entityAsMap) {
-                        return null;
-                    }
-                });
-        assertEquals("jedis cannot be null!", nullJedisError.getMessage());
-    }
-
-    @Test
     void testNewInstanceWithNullJedisPool() {
         final var nullJedisPoolError = assertThrows(IllegalArgumentException.class, () ->
-                new BaseStringHashRedisRepository<Person>((JedisPool) null, randomString()) {
+                new BaseStringHashRedisRepository<Person>(null, randomString()) {
                     @Override
                     public Map<String, String> convertTo(final Person entity) {
                         return null;
@@ -109,52 +92,6 @@ final class BaseStringHashRedisRepositoryTests extends RedisTestContainer {
                     }
                 });
         assertEquals("jedisPool cannot be null!", nullJedisPoolError.getMessage());
-    }
-
-    @Test
-    void testNewInstanceWithValidJedisAndInvalidCollectionKey() {
-        final var nullCollectionKeyError = assertThrows(IllegalArgumentException.class, () ->
-                new BaseStringHashRedisRepository<Person>(jedis, null) {
-                    @Override
-                    public Map<String, String> convertTo(final Person entity) {
-                        return null;
-                    }
-
-                    @Override
-                    public Person convertFrom(final Map<String, String> entityAsMap) {
-                        return null;
-                    }
-                });
-        assertEquals("collectionKey cannot be null, nor empty!", nullCollectionKeyError.getMessage());
-
-        final var emptyCollectionKeyError = assertThrows(IllegalArgumentException.class, () ->
-                new BaseStringHashRedisRepository<Person>(jedis, "") {
-                    @Override
-                    public Map<String, String> convertTo(final Person entity) {
-                        return null;
-                    }
-
-                    @Override
-                    public Person convertFrom(final Map<String, String> entityAsMap) {
-                        return null;
-                    }
-                });
-        assertEquals("collectionKey cannot be null, nor empty!", emptyCollectionKeyError.getMessage());
-
-        final var invalidCollectionKey = randomString() + ":" + randomString();
-        final var invalidCollectionKeyError = assertThrows(IllegalArgumentException.class, () ->
-                new BaseStringHashRedisRepository<Person>(jedis, invalidCollectionKey) {
-                    @Override
-                    public Map<String, String> convertTo(final Person entity) {
-                        return null;
-                    }
-
-                    @Override
-                    public Person convertFrom(final Map<String, String> entityAsMap) {
-                        return null;
-                    }
-                });
-        assertEquals("Collection key `" + invalidCollectionKey + "` cannot contain `:`", invalidCollectionKeyError.getMessage());
     }
 
     @Test

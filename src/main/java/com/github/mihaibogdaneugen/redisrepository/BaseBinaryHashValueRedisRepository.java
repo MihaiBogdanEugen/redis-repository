@@ -1,6 +1,5 @@
 package com.github.mihaibogdaneugen.redisrepository;
 
-import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.util.SafeEncoder;
 
@@ -28,21 +27,6 @@ public abstract class BaseBinaryHashValueRedisRepository<T>
     private final byte[] parentKey;
 
     /**
-     * Builds a BaseBinaryHashValueRedisRepository, based around a Jedis object, for a specific collection.<br/>
-     * The provided Jedis object will be closed should `.close()` be called.
-     * @param jedis The Jedis object
-     * @param parentKey The name of the collection used as the parent key
-     */
-    public BaseBinaryHashValueRedisRepository(final Jedis jedis, final String parentKey) {
-        super(jedis);
-        throwIfNullOrEmptyOrBlank(parentKey, "parentKey");
-        if (parentKey.contains(DEFAULT_KEY_SEPARATOR)) {
-            throw new IllegalArgumentException("Parent key `" + parentKey + "` cannot contain `" + DEFAULT_KEY_SEPARATOR + "`!");
-        }
-        this.parentKey = SafeEncoder.encode(parentKey);
-    }
-
-    /**
      * Builds a BaseBinaryHashValueRedisRepository, based around a jedisPool object, for a specific collection.<br/>
      * A Jedis object will be retrieved from the JedisPool by calling `.getResource()` and it will<br/>
      * be closed should `.close()` be called.
@@ -68,10 +52,12 @@ public abstract class BaseBinaryHashValueRedisRepository<T>
     @Override
     public final Optional<T> get(final String id) {
         throwIfNullOrEmptyOrBlank(id, "id");
-        final var entity = jedis.hget(parentKey, getKey(id));
-        return isNullOrEmpty(entity)
-                ? Optional.empty()
-                : Optional.of(convertFrom(entity));
+        return getResult(jedis -> {
+            final var entity = jedis.hget(parentKey, getKey(id));
+            return isNullOrEmpty(entity)
+                    ? Optional.empty()
+                    : Optional.of(convertFrom(entity));
+        });
     }
 
     /**
@@ -84,11 +70,13 @@ public abstract class BaseBinaryHashValueRedisRepository<T>
     @Override
     public final List<T> get(final String... ids) {
         throwIfNullOrEmpty(ids, "ids");
-        final var entities = jedis.hmget(parentKey, getKeys(ids));
-        return entities.stream()
-                .filter(RedisRepository::isNotNullNorEmpty)
-                .map(this::convertFrom)
-                .collect(Collectors.toList());
+        return getResult(jedis -> {
+            final var entities = jedis.hmget(parentKey, getKeys(ids));
+            return entities.stream()
+                    .filter(RedisRepository::isNotNullNorEmpty)
+                    .map(this::convertFrom)
+                    .collect(Collectors.toList());
+        });
     }
 
     /**
@@ -99,10 +87,10 @@ public abstract class BaseBinaryHashValueRedisRepository<T>
      */
     @Override
     public final List<T> getAll() {
-        return jedis.hgetAll(parentKey).values().stream()
+        return getResult(jedis -> jedis.hgetAll(parentKey).values().stream()
                 .filter(RedisRepository::isNotNullNorEmpty)
                 .map(this::convertFrom)
-                .collect(Collectors.toList());
+                .collect(Collectors.toList()));
     }
 
     /**
@@ -115,7 +103,7 @@ public abstract class BaseBinaryHashValueRedisRepository<T>
     @Override
     public final Boolean exists(final String id) {
         throwIfNullOrEmptyOrBlank(id, "id");
-        return jedis.hexists(parentKey, getKey(id));
+        return getResult(jedis -> jedis.hexists(parentKey, getKey(id)));
     }
 
     /**
@@ -129,7 +117,7 @@ public abstract class BaseBinaryHashValueRedisRepository<T>
     public final void set(final String id, final T entity) {
         throwIfNullOrEmptyOrBlank(id, "id");
         throwIfNull(entity, "entity");
-        jedis.hset(parentKey, getKey(id), convertTo(entity));
+        execute(jedis -> jedis.hset(parentKey, getKey(id), convertTo(entity)));
     }
 
     /**
@@ -143,7 +131,7 @@ public abstract class BaseBinaryHashValueRedisRepository<T>
     public final void setIfNotExist(final String id, final T entity) {
         throwIfNullOrEmptyOrBlank(id, "id");
         throwIfNull(entity, "entity");
-        jedis.hsetnx(parentKey, getKey(id), convertTo(entity));
+        execute(jedis -> jedis.hsetnx(parentKey, getKey(id), convertTo(entity)));
     }
 
     /**
@@ -155,7 +143,7 @@ public abstract class BaseBinaryHashValueRedisRepository<T>
     @Override
     public final void delete(final String id) {
         throwIfNullOrEmptyOrBlank(id, "id");
-        jedis.hdel(parentKey, getKey(id));
+        execute(jedis -> jedis.hdel(parentKey, getKey(id)));
     }
 
     /**
@@ -167,7 +155,7 @@ public abstract class BaseBinaryHashValueRedisRepository<T>
     @Override
     public final void delete(final String... ids) {
         throwIfNullOrEmpty(ids, "ids");
-        jedis.hdel(parentKey, getKeys(ids));
+        execute(jedis -> jedis.hdel(parentKey, getKeys(ids)));
     }
 
     /**
@@ -177,7 +165,7 @@ public abstract class BaseBinaryHashValueRedisRepository<T>
      */
     @Override
     public final void deleteAll() {
-        jedis.del(parentKey);
+        execute(jedis -> jedis.del(parentKey));
     }
 
     /**
@@ -188,7 +176,7 @@ public abstract class BaseBinaryHashValueRedisRepository<T>
      */
     @Override
     public Set<String> getAllKeys() {
-        return jedis.hkeys(SafeEncoder.encode(parentKey));
+        return getResult(jedis -> jedis.hkeys(SafeEncoder.encode(parentKey)));
     }
 
     private byte[] getKey(final String id) {
