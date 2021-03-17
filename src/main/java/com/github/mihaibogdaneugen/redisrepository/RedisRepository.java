@@ -54,6 +54,12 @@ abstract class RedisRepository {
         }
     }
 
+    /**
+     * Runs a given Lua script.
+     * @param script The Lua script
+     * @param keys The list of String keys
+     * @param args The list of String arguments
+     */
     public final void eval(final String script, final List<String> keys, final List<String> args) {
         throwIfNullOrEmptyOrBlank(script, "script");
         throwIfNullOrEmpty(keys, "keys");
@@ -61,11 +67,21 @@ abstract class RedisRepository {
         execute(jedis -> jedis.eval(script, keys, args));
     }
 
+    /**
+     * Runs a given Lua script.
+     * @param script The Lua script
+     */
     public final void eval(final String script) {
         throwIfNullOrEmptyOrBlank(script, "script");
         execute(jedis -> jedis.eval(script));
     }
 
+    /**
+     * Runs a given Lua script expressed in a binary form.
+     * @param script The Lua script in a binary form
+     * @param keys The list of binary keys
+     * @param args The list of binary arguments
+     */
     public final void eval(final byte[] script, final List<byte[]> keys, final List<byte[]> args) {
         throwIfNullOrEmpty(script);
         throwIfNullOrEmpty(keys, "keys");
@@ -73,6 +89,10 @@ abstract class RedisRepository {
         execute(jedis -> jedis.eval(script, keys, args));
     }
 
+    /**
+     * Runs a given Lua script expressed in a binary form.
+     * @param script The Lua script in a binary form
+     */
     public final void eval(final byte[] script) {
         throwIfNullOrEmpty(script);
         execute(jedis -> jedis.eval(script));
