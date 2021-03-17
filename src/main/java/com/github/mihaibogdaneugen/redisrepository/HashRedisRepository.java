@@ -84,6 +84,14 @@ interface HashRedisRepository<T, SerializationType> {
     void delete(final String id);
 
     /**
+     * Removes the entity with the given identifier only if the `conditioner` returns true (conditional delete).
+     * @param id The String identifier of the entity
+     * @param conditioner A function that represents the condition for the delete to happen
+     @return Optional object, empty if no such entity exists, or boolean value indicating the status of the transaction
+     */
+    Optional<Boolean> delete(final String id, final Function<T, Boolean> conditioner);
+
+    /**
      * Removes all entities with the given identifiers.
      * @param ids The array of Strings identifiers of entities
      */

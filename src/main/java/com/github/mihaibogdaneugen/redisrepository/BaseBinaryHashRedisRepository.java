@@ -309,6 +309,45 @@ public abstract class BaseBinaryHashRedisRepository<T>
     }
 
     /**
+     * Removes the entity with the given identifier only if the `conditioner` returns true (conditional delete).<br/>
+     * This method provides a transactional behaviour for deleting the entity.<br/>
+     * Note: This method calls the WATCH, HGETALL, UNWATCH, MULTI, DEL and EXEC Redis commands.
+     * @see <a href="https://redis.io/commands/WATCH">WATCH</a>
+     * @see <a href="https://redis.io/commands/HGETALL">HGETALL</a>
+     * @see <a href="https://redis.io/commands/UNWATCH">UNWATCH</a>
+     * @see <a href="https://redis.io/commands/MULTI">MULTI</a>
+     * @see <a href="https://redis.io/commands/HDEL">HDEL</a>
+     * @see <a href="https://redis.io/commands/EXEC">EXEC</a>
+     * @param id The String identifier of the entity
+     * @param conditioner A function that represents the condition for the delete to happen
+     @return Optional object, empty if no such entity exists, or boolean value indicating the status of the transaction
+     */
+    public final Optional<Boolean> delete(final String id, final Function<T, Boolean> conditioner) {
+        throwIfNullOrEmptyOrBlank(id, "id");
+        throwIfNull(conditioner, "conditioner");
+        final var key = getKey(id);
+        return getResult(jedis -> {
+            jedis.watch(key);
+            final var value = jedis.hgetAll(key);
+            if (isNullOrEmpty(value)) {
+                jedis.unwatch();
+                return Optional.empty();
+            }
+            final var entity = convertFrom(value);
+            if (!conditioner.apply(entity)) {
+                jedis.unwatch();
+                return Optional.of(true);
+            }
+            final List<Object> results;
+            try (final var transaction = jedis.multi()) {
+                transaction.del(key);
+                results = transaction.exec();
+            }
+            return Optional.of(isNotNullNorEmpty(results));
+        });
+    }
+
+    /**
      * Removes all entities with the given identifiers.<br/>
      * Note: This method calls the DEL Redis command.
      * @see <a href="https://redis.io/commands/DEL">DEL</a>

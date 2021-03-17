@@ -640,7 +640,14 @@ final class BaseStringValueRedisRepositoryTests extends RedisTestContainer {
                 insert(newExpectedPerson);
             }
         },100);
-        final var updateResult = repository.update(expectedPerson.getId(), updater, person -> person.getHeightMeters() > 1.0f);
+        final var updateResult = repository.update(expectedPerson.getId(), updater, person -> {
+            try {
+                Thread.sleep(100);
+            } catch (final InterruptedException e) {
+                //ignored
+            }
+            return person.getHeightMeters() > 1.0f;
+        });
         assertTrue(updateResult.isPresent());
         assertFalse(updateResult.get());
         final var getResult = get(expectedPerson.getId());
@@ -680,6 +687,87 @@ final class BaseStringValueRedisRepositoryTests extends RedisTestContainer {
         repository.delete(expectedPerson1.getId());
         final var actualPerson1 = get(expectedPerson1.getId());
         assertTrue(actualPerson1.isEmpty());
+    }
+
+    @Test
+    void testConditionalDeleteInvalidArgument() {
+        final var nullIdError = assertThrows(IllegalArgumentException.class, () ->
+                repository.delete(null, person -> true));
+        assertEquals("id cannot be null, nor empty!", nullIdError.getMessage());
+
+        final var emptyIdError = assertThrows(IllegalArgumentException.class, () ->
+                repository.delete("", person -> true));
+        assertEquals("id cannot be null, nor empty!", emptyIdError.getMessage());
+    }
+
+    @Test
+    void testConditionalDeleteNullConditioner() {
+        final var nullIdError = assertThrows(IllegalArgumentException.class, () ->
+                repository.delete(randomString(), null));
+        assertEquals("conditioner cannot be null!", nullIdError.getMessage());
+    }
+
+    @Test
+    void testConditionalDeleteNonExistentEntity() {
+        final var expectedPerson = Person.random();
+        final var result = repository.delete(expectedPerson.getId(), person -> person.getHeightMeters() > 1.0f);
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void testConditionalDelete() {
+        final var expectedPerson = Person.random();
+        insert(expectedPerson);
+        final var deleteResult = repository.delete(expectedPerson.getId(), person -> person.getHeightMeters() > 1.0f);
+        assertTrue(deleteResult.isPresent());
+        assertTrue(deleteResult.get());
+        final var getResult = get(expectedPerson.getId());
+        assertTrue(getResult.isEmpty());
+    }
+
+    @Test
+    void testConditionalDeleteFailedCondition() {
+        final var expectedPerson = Person.random();
+        insert(expectedPerson);
+        final var deleteResult = repository.delete(expectedPerson.getId(), person -> person.getHeightMeters() > 2.0f);
+        assertTrue(deleteResult.isPresent());
+        assertTrue(deleteResult.get());
+        final var getResult = get(expectedPerson.getId());
+        assertTrue(getResult.isPresent());
+        assertEquals(expectedPerson, getResult.get());
+    }
+
+    @Test
+    void testConditionalDeleteTransactionalBehaviour() {
+        final var expectedPerson = Person.random();
+        insert(expectedPerson);
+        final var newExpectedPerson = new Person(
+                expectedPerson.getId(),
+                randomString(),
+                expectedPerson.getDateOfBirth(),
+                expectedPerson.isMarried(),
+                10 * expectedPerson.getHeightMeters(),
+                expectedPerson.getEyeColor());
+        new Timer().schedule(new TimerTask() {
+            @Override
+            public void run() {
+                insert(newExpectedPerson);
+            }
+        },100);
+        final var deleteResult = repository.delete(expectedPerson.getId(), person -> {
+            try {
+                Thread.sleep(100);
+            } catch (final InterruptedException e) {
+                //ignored
+            }
+            return person.getHeightMeters() > 1.0f;
+        });
+        assertTrue(deleteResult.isPresent());
+        assertFalse(deleteResult.get());
+        final var getResult = get(expectedPerson.getId());
+        assertTrue(getResult.isPresent());
+        assertNotEquals(expectedPerson, getResult.get());
+        assertEquals(newExpectedPerson, getResult.get());
     }
 
     @Test
