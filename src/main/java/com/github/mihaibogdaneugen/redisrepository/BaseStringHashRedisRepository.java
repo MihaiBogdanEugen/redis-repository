@@ -96,7 +96,7 @@ public abstract class BaseStringHashRedisRepository<T>
      */
     @Override
     public final Set<T> get(final Set<String> ids) {
-        throwIfNullOrEmpty(ids);
+        throwIfNullOrEmpty(ids, "ids");
         final var keys = getKeys(ids);
         return getByKeys(keys);
     }
@@ -135,7 +135,7 @@ public abstract class BaseStringHashRedisRepository<T>
     }
 
     /**
-     * Replaces (or inserts) the given entity with the specified identifier.<br/>
+     * Sets (updates or inserts) the given entity with the specified identifier.<br/>
      * Note: This method calls the HSET Redis command.
      * @see <a href="https://redis.io/commands/HSET">HSET</a>
      * @param id The String identifier of the entity
@@ -150,7 +150,7 @@ public abstract class BaseStringHashRedisRepository<T>
     }
 
     /**
-     * Inserts the given entity with the specified identifier, only if it does exist.<br/>
+     * Sets the given entity with the specified identifier only if it does exist (update).<br/>
      * This method works in a transactional manner by watching for such a key.<br/>
      * Note: This method calls the WATCH, EXISTS, UNWATCH, MULTI, HSET and EXEC Redis command.
      * @see <a href="https://redis.io/commands/WATCH">WATCH</a>
@@ -163,7 +163,7 @@ public abstract class BaseStringHashRedisRepository<T>
      * @param entity The entity to be set
      */
     @Override
-    public final void setIfExist(final String id, final T entity) {
+    public final void setIfItExists(final String id, final T entity) {
         throwIfNullOrEmptyOrBlank(id, "id");
         throwIfNull(entity, "entity");
         final var key = getKey(id);
@@ -181,7 +181,7 @@ public abstract class BaseStringHashRedisRepository<T>
     }
 
     /**
-     * Inserts the given entity with the specified identifier, only if it does not exist.<br/>
+     * Sets the given entity with the specified identifier only if it does not exist (insert).<br/>
      * This method works in a transactional manner by watching for such a key.<br/>
      * Note: This method calls the WATCH, EXISTS, UNWATCH, MULTI, HSET and EXEC Redis command.
      * @see <a href="https://redis.io/commands/WATCH">WATCH</a>
@@ -194,7 +194,7 @@ public abstract class BaseStringHashRedisRepository<T>
      * @param entity The entity to be set
      */
     @Override
-    public final void setIfNotExist(final String id, final T entity) {
+    public final void setIfDoesNotExist(final String id, final T entity) {
         throwIfNullOrEmptyOrBlank(id, "id");
         throwIfNull(entity, "entity");
         final var key = getKey(id);
@@ -353,7 +353,7 @@ public abstract class BaseStringHashRedisRepository<T>
      */
     @Override
     public final void delete(final Set<String> ids) {
-        throwIfNullOrEmpty(ids);
+        throwIfNullOrEmpty(ids, "ids");
         final var keys = getKeys(ids).toArray(String[]::new);
         execute(jedis -> jedis.del(keys));
     }

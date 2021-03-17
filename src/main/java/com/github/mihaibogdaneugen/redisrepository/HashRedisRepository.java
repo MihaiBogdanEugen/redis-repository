@@ -39,25 +39,25 @@ interface HashRedisRepository<T, SerializationType> {
     Boolean exists(final String id);
 
     /**
-     * Replaces (or inserts) the given entity with the specified identifier.
+     * Sets (updates or inserts) the given entity with the specified identifier.
      * @param id The String identifier of the entity
      * @param entity The entity to be set
      */
     void set(final String id, final T entity);
 
     /**
-     * Inserts the given entity with the specified identifier, only if it does exist.
+     * Sets the given entity with the specified identifier only if it does exist (update).
      * @param id The String identifier of the entity
      * @param entity The entity to be set
      */
-    void setIfExist(final String id, final T entity);
+    void setIfItExists(final String id, final T entity);
 
     /**
-     * Inserts the given entity with the specified identifier, only if it does not exist.
+     * Sets the given entity with the specified identifier only if it does not exist (insert).
      * @param id The String identifier of the entity
      * @param entity The entity to be set
      */
-    void setIfNotExist(final String id, final T entity);
+    void setIfDoesNotExist(final String id, final T entity);
 
     /**
      * Updates the entity with the specified identifier by calling the `updater` function.

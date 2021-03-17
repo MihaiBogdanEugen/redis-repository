@@ -3,6 +3,7 @@ package com.github.mihaibogdaneugen.redisrepository;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.exceptions.JedisException;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -24,6 +25,11 @@ public abstract class BaseStringHashValueRedisRepository<T>
         implements StringHashValueRedisRepository<T> {
 
     private final String parentKey;
+
+    private String sha1LuaScriptUpdateIfItIs;
+    private String sha1LuaScriptUpdateIfItIsNot;
+    private String sha1LuaScriptDeleteIfItIs;
+    private String sha1LuaScriptDeleteIfItIsNot;
 
     /**
      * Builds a BaseStringHashValueRedisRepository, based on a jedisPool object, for a specific collection.<br/>
@@ -83,7 +89,7 @@ public abstract class BaseStringHashValueRedisRepository<T>
      */
     @Override
     public final Set<T> get(final Set<String> ids) {
-        throwIfNullOrEmpty(ids);
+        throwIfNullOrEmpty(ids, "ids");
         return getResult(jedis -> {
             final var entities = jedis.hmget(parentKey, ids.toArray(String[]::new));
             return entities.stream()
@@ -121,7 +127,7 @@ public abstract class BaseStringHashValueRedisRepository<T>
     }
 
     /**
-     * Replaces (or inserts) the given entity with the specified identifier.<br/>
+     * Sets (updates or inserts) the given entity with the specified identifier.<br/>
      * Note: This method calls the HSET Redis command.
      * @see <a href="https://redis.io/commands/HSET">HSET</a>
      * @param id The String identifier of the entity
@@ -135,14 +141,14 @@ public abstract class BaseStringHashValueRedisRepository<T>
     }
 
     /**
-     * Inserts the given entity with the specified identifier, only if it does not exist.<br/>
+     * Sets the given entity with the specified identifier only if it does not exist (insert).<br/>
      * Note: This method calls the HSETNX Redis command.
      * @see <a href="https://redis.io/commands/HSETNX">HSETNX</a>
      * @param id The String identifier of the entity
      * @param entity The entity to be set
      */
     @Override
-    public final void setIfNotExist(final String id, final T entity) {
+    public final void setIfDoesNotExist(final String id, final T entity) {
         throwIfNullOrEmptyOrBlank(id, "id");
         throwIfNull(entity, "entity");
         execute(jedis -> jedis.hsetnx(parentKey, id, convertTo(entity)));
@@ -168,7 +174,7 @@ public abstract class BaseStringHashValueRedisRepository<T>
      */
     @Override
     public final void delete(final Set<String> ids) {
-        throwIfNullOrEmpty(ids);
+        throwIfNullOrEmpty(ids, "ids");
         execute(jedis -> jedis.hdel(parentKey, ids.toArray(String[]::new)));
     }
 
@@ -191,5 +197,93 @@ public abstract class BaseStringHashValueRedisRepository<T>
     @Override
     public Set<String> getAllKeys() {
         return getResult(jedis -> jedis.hkeys(parentKey));
+    }
+
+    /**
+     * Update the entity identified by the given identifier to the new provided value if its old value is equal with the given one.<br/>
+     * This method is using a Lua script to do this in a transactional manner. The script is cached on its first use.<br/>
+     * If the entity is not there, this method does nothing.<br/>
+     * @param id The String identifier of the entity
+     * @param oldValue The old value of the entity
+     * @param newValue The new value of the entity
+     */
+    @Override
+    public final void updateIfItIs(final String id, final T oldValue, final T newValue) {
+        throwIfNullOrEmptyOrBlank(id, "id");
+        throwIfNull(oldValue, "oldValue");
+        throwIfNull(newValue, "newValue");
+        final var keys = List.of(parentKey, id);
+        final var args = List.of(convertTo(oldValue), convertTo(newValue));
+        execute(jedis -> {
+            if (isNullOrEmptyOrBlank(sha1LuaScriptUpdateIfItIs)) {
+                sha1LuaScriptUpdateIfItIs = jedis.scriptLoad(getLuaScriptUpdateIfItIs());
+            }
+            jedis.evalsha(sha1LuaScriptUpdateIfItIs, keys, args);
+        });
+    }
+
+    /**
+     * Update the entity identified by the given identifier to the new provided value if its old value is not equal with the given one.<br/>
+     * This method is using a Lua script to do this in a transactional manner. The script is cached on its first use.<br/>
+     * If the entity is not there, this method does nothing.<br/>
+     * @param id The String identifier of the entity
+     * @param oldValue The old value of the entity
+     * @param newValue The new value of the entity
+     */
+    @Override
+    public final void updateIfItIsNot(final String id, final T oldValue, final T newValue) {
+        throwIfNullOrEmptyOrBlank(id, "id");
+        throwIfNull(oldValue, "oldValue");
+        throwIfNull(newValue, "newValue");
+        final var keys = List.of(parentKey, id);
+        final var args = List.of(convertTo(oldValue), convertTo(newValue));
+        execute(jedis -> {
+            if (isNullOrEmptyOrBlank(sha1LuaScriptUpdateIfItIsNot)) {
+                sha1LuaScriptUpdateIfItIsNot = jedis.scriptLoad(getLuaScriptUpdateIfItIsNot());
+            }
+            jedis.evalsha(sha1LuaScriptUpdateIfItIsNot, keys, args);
+        });
+    }
+
+    /**
+     * Delete the entity identified by the given identifier if its old value is equal with the given one.<br/>
+     * This method is using a Lua script to do this in a transactional manner. The script is cached on its first use.<br/>
+     * If the entity is not there, this method does nothing.<br/>
+     * @param id The String identifier of the entity
+     * @param oldValue The old value of the entity
+     */
+    @Override
+    public final void deleteIfItIs(final String id, final T oldValue) {
+        throwIfNullOrEmptyOrBlank(id, "id");
+        throwIfNull(oldValue, "oldValue");
+        final var keys = List.of(parentKey, id);
+        final var args = List.of(convertTo(oldValue));
+        execute(jedis -> {
+            if (isNullOrEmptyOrBlank(sha1LuaScriptDeleteIfItIs)) {
+                sha1LuaScriptDeleteIfItIs = jedis.scriptLoad(getLuaScriptDeleteIfItIs());
+            }
+            jedis.evalsha(sha1LuaScriptDeleteIfItIs, keys, args);
+        });
+    }
+
+    /**
+     * Delete the entity identified by the given identifier if its old value is not equal with the given one.<br/>
+     * This method is using a Lua script to do this in a transactional manner. The script is cached on its first use.<br/>
+     * If the entity is not there, this method does nothing.<br/>
+     * @param id The String identifier of the entity
+     * @param oldValue The old value of the entity
+     */
+    @Override
+    public final void deleteIfItIsNot(final String id, final T oldValue) {
+        throwIfNullOrEmptyOrBlank(id, "id");
+        throwIfNull(oldValue, "oldValue");
+        final var keys = List.of(parentKey, id);
+        final var args = List.of(convertTo(oldValue));
+        execute(jedis -> {
+            if (isNullOrEmptyOrBlank(sha1LuaScriptDeleteIfItIsNot)) {
+                sha1LuaScriptDeleteIfItIsNot = jedis.scriptLoad(getLuaScriptDeleteIfItIsNot());
+            }
+            jedis.evalsha(sha1LuaScriptDeleteIfItIsNot, keys, args);
+        });
     }
 }

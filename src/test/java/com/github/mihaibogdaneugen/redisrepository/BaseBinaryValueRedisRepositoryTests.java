@@ -325,11 +325,11 @@ final class BaseBinaryValueRedisRepositoryTests extends RedisTestContainer {
     void testSetIfExistsInvalidArgumentId() {
         final var person = Person.random();
         final var nullIdError = assertThrows(IllegalArgumentException.class, () ->
-                repository.setIfExist(null, person));
+                repository.setIfItExists(null, person));
         assertEquals("id cannot be null, nor empty!", nullIdError.getMessage());
 
         final var emptyIdError = assertThrows(IllegalArgumentException.class, () ->
-                repository.setIfExist("", person));
+                repository.setIfItExists("", person));
         assertEquals("id cannot be null, nor empty!", emptyIdError.getMessage());
     }
 
@@ -337,14 +337,14 @@ final class BaseBinaryValueRedisRepositoryTests extends RedisTestContainer {
     void testSetIfExistsNullArgumentEntity() {
         final var person = Person.random();
         final var nullPersonError = assertThrows(IllegalArgumentException.class, () ->
-                repository.setIfExist(person.getId(), null));
+                repository.setIfItExists(person.getId(), null));
         assertEquals("entity cannot be null!", nullPersonError.getMessage());
     }
 
     @Test
     void testSetIfExistsNonExisting() {
         final var expectedPerson = Person.random();
-        repository.setIfExist(expectedPerson.getId(), expectedPerson);
+        repository.setIfItExists(expectedPerson.getId(), expectedPerson);
         final var actualPerson = get(expectedPerson.getId());
         assertTrue(actualPerson.isEmpty());
     }
@@ -355,7 +355,7 @@ final class BaseBinaryValueRedisRepositoryTests extends RedisTestContainer {
         insert(oldPerson);
         final var expectedPerson = Person.random();
         expectedPerson.setId(oldPerson.getId());
-        repository.setIfExist(expectedPerson.getId(), expectedPerson);
+        repository.setIfItExists(expectedPerson.getId(), expectedPerson);
         final var actualPerson = get(expectedPerson.getId());
         assertTrue(actualPerson.isPresent());
         assertEquals(expectedPerson, actualPerson.get());
@@ -365,11 +365,11 @@ final class BaseBinaryValueRedisRepositoryTests extends RedisTestContainer {
     void testSetIfNotExistsInvalidArgumentId() {
         final var person = Person.random();
         final var nullIdError = assertThrows(IllegalArgumentException.class, () ->
-                repository.setIfNotExist(null, person));
+                repository.setIfDoesNotExist(null, person));
         assertEquals("id cannot be null, nor empty!", nullIdError.getMessage());
 
         final var emptyIdError = assertThrows(IllegalArgumentException.class, () ->
-                repository.setIfNotExist("", person));
+                repository.setIfDoesNotExist("", person));
         assertEquals("id cannot be null, nor empty!", emptyIdError.getMessage());
     }
 
@@ -377,7 +377,7 @@ final class BaseBinaryValueRedisRepositoryTests extends RedisTestContainer {
     void testSetIfNotExistsNullArgumentEntity() {
         final var person = Person.random();
         final var nullPersonError = assertThrows(IllegalArgumentException.class, () ->
-                repository.setIfNotExist(person.getId(), null));
+                repository.setIfDoesNotExist(person.getId(), null));
         assertEquals("entity cannot be null!", nullPersonError.getMessage());
     }
 
@@ -387,7 +387,7 @@ final class BaseBinaryValueRedisRepositoryTests extends RedisTestContainer {
         insert(oldPerson);
         final var expectedPerson = Person.random();
         expectedPerson.setId(oldPerson.getId());
-        repository.setIfNotExist(expectedPerson.getId(), expectedPerson);
+        repository.setIfDoesNotExist(expectedPerson.getId(), expectedPerson);
         final var actualPerson = get(expectedPerson.getId());
         assertTrue(actualPerson.isPresent());
         assertEquals(oldPerson, actualPerson.get());
@@ -396,7 +396,7 @@ final class BaseBinaryValueRedisRepositoryTests extends RedisTestContainer {
     @Test
     void testSetIfNotExists() {
         final var expectedPerson = Person.random();
-        repository.setIfNotExist(expectedPerson.getId(), expectedPerson);
+        repository.setIfDoesNotExist(expectedPerson.getId(), expectedPerson);
         final var actualPerson = get(expectedPerson.getId());
         assertTrue(actualPerson.isPresent());
         assertEquals(expectedPerson, actualPerson.get());
@@ -957,6 +957,79 @@ final class BaseBinaryValueRedisRepositoryTests extends RedisTestContainer {
         jedis.del(allKeys.toArray(String[]::new));
         final var noMoreKeys = repository.getAllKeys();
         assertTrue(noMoreKeys.isEmpty());
+    }
+
+    @Test
+    void testUpdateIfItIs() {
+        final var oldPerson = Person.random();
+        insert(oldPerson);
+        final var newPerson = new Person(
+                oldPerson.getId(),
+                randomString(),
+                oldPerson.getDateOfBirth(),
+                oldPerson.isMarried(),
+                oldPerson.getHeightMeters(),
+                oldPerson.getEyeColor()
+        );
+        repository.updateIfItIs(oldPerson.getId(), oldPerson, newPerson);
+        final var result = get(oldPerson.getId());
+        assertTrue(result.isPresent());
+        assertNotEquals(oldPerson, result.get());
+        assertEquals(newPerson, result.get());
+    }
+
+    @Test
+    void testUpdateIfItIsNot() {
+        final var oldPerson = Person.random();
+        insert(oldPerson);
+        final var wrongOldPerson = new Person(
+                oldPerson.getId(),
+                randomString(),
+                oldPerson.getDateOfBirth(),
+                oldPerson.isMarried(),
+                oldPerson.getHeightMeters(),
+                oldPerson.getEyeColor()
+        );
+        final var newPerson = new Person(
+                oldPerson.getId(),
+                randomString(),
+                oldPerson.getDateOfBirth(),
+                oldPerson.isMarried(),
+                oldPerson.getHeightMeters(),
+                oldPerson.getEyeColor()
+        );
+        repository.updateIfItIsNot(oldPerson.getId(), wrongOldPerson, newPerson);
+        final var result = get(oldPerson.getId());
+        assertTrue(result.isPresent());
+        assertNotEquals(oldPerson, result.get());
+        assertNotEquals(wrongOldPerson, result.get());
+        assertEquals(newPerson, result.get());
+    }
+
+    @Test
+    void testDeleteIfItIs() {
+        final var oldPerson = Person.random();
+        insert(oldPerson);
+        repository.deleteIfItIs(oldPerson.getId(), oldPerson);
+        final var result = get(oldPerson.getId());
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void testDeleteIfItIsNot() {
+        final var oldPerson = Person.random();
+        insert(oldPerson);
+        final var wrongOldPerson = new Person(
+                oldPerson.getId(),
+                randomString(),
+                oldPerson.getDateOfBirth(),
+                oldPerson.isMarried(),
+                oldPerson.getHeightMeters(),
+                oldPerson.getEyeColor()
+        );
+        repository.deleteIfItIsNot(oldPerson.getId(), wrongOldPerson);
+        final var result = get(oldPerson.getId());
+        assertTrue(result.isEmpty());
     }
 
     private void insert(final Person person) {

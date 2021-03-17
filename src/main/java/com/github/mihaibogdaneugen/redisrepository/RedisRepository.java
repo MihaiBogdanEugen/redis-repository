@@ -2,7 +2,6 @@ package com.github.mihaibogdaneugen.redisrepository;
 
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
-import redis.clients.jedis.commands.ScriptingCommands;
 import redis.clients.jedis.exceptions.JedisException;
 
 import java.util.Collection;
@@ -11,7 +10,7 @@ import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-abstract class RedisRepository implements ScriptingCommands {
+abstract class RedisRepository {
 
     protected static final String DEFAULT_KEY_SEPARATOR = ":";
 
@@ -55,66 +54,28 @@ abstract class RedisRepository implements ScriptingCommands {
         }
     }
 
-    @Override
-    public final Object eval(final String script, final int keyCount, final String... params) {
+    public final void eval(final String script, final List<String> keys, final List<String> args) {
         throwIfNullOrEmptyOrBlank(script, "script");
-        throwIfNegative(keyCount, "keyCount");
-        throwIfNullOrEmpty(params, "params");
-        return getResult(jedis -> jedis.eval(script, keyCount, params));
+        throwIfNullOrEmpty(keys, "keys");
+        throwIfNullOrEmpty(args, "args");
+        execute(jedis -> jedis.eval(script, keys, args));
     }
 
-    @Override
-    public final Object eval(final String script, final List<String> keys, final List<String> args) {
+    public final void eval(final String script) {
         throwIfNullOrEmptyOrBlank(script, "script");
-        throwIfNull(keys, "keys");
-        throwIfNull(args, "args");
-        return getResult(jedis -> jedis.eval(script, keys, args));
+        execute(jedis -> jedis.eval(script));
     }
 
-    @Override
-    public final Object eval(final String script) {
-        throwIfNullOrEmptyOrBlank(script, "script");
-        return getResult(jedis -> jedis.eval(script));
+    public final void eval(final byte[] script, final List<byte[]> keys, final List<byte[]> args) {
+        throwIfNullOrEmpty(script);
+        throwIfNullOrEmpty(keys, "keys");
+        throwIfNullOrEmpty(args, "args");
+        execute(jedis -> jedis.eval(script, keys, args));
     }
 
-    @Override
-    public final Object evalsha(final String sha1) {
-        throwIfNullOrEmptyOrBlank(sha1, "sha1");
-        return getResult(jedis -> jedis.evalsha(sha1));
-    }
-
-    @Override
-    public final Object evalsha(final String sha1, final List<String> keys, final List<String> args) {
-        throwIfNullOrEmptyOrBlank(sha1, "sha1");
-        throwIfNull(keys, "keys");
-        throwIfNull(args, "args");
-        return getResult(jedis -> jedis.evalsha(sha1, keys, args));
-    }
-
-    @Override
-    public final Object evalsha(final String sha1, final int keyCount, final String... params) {
-        throwIfNullOrEmptyOrBlank(sha1, "sha1");
-        throwIfNegative(keyCount, "keyCount");
-        throwIfNullOrEmpty(params, "params");
-        return getResult(jedis -> jedis.evalsha(sha1, keyCount, params));
-    }
-
-    @Override
-    public final Boolean scriptExists(final String sha1) {
-        throwIfNullOrEmptyOrBlank(sha1, "sha1");
-        return getResult(jedis -> jedis.scriptExists(sha1));
-    }
-
-    @Override
-    public final List<Boolean> scriptExists(final String... sha1) {
-        throwIfNullOrEmpty(sha1, "sha1");
-        return getResult(jedis -> jedis.scriptExists(sha1));
-    }
-
-    @Override
-    public final String scriptLoad(final String script) {
-        throwIfNullOrEmptyOrBlank(script, "script");
-        return getResult(jedis -> jedis.scriptLoad(script));
+    public final void eval(final byte[] script) {
+        throwIfNullOrEmpty(script);
+        execute(jedis -> jedis.eval(script));
     }
 
     protected static <T> void throwIfNull(final T object, final String valueName) {
@@ -123,15 +84,15 @@ abstract class RedisRepository implements ScriptingCommands {
         }
     }
 
-    protected static void throwIfNullOrEmpty(final String[] strings, final String valueName) {
-        if (isNullOrEmpty(strings)) {
-            throw new IllegalArgumentException(valueName + " cannot be null, nor empty!");
+    protected static void throwIfNullOrEmpty(final byte[] bytes) {
+        if (isNullOrEmpty(bytes)) {
+            throw new IllegalArgumentException("script cannot be null, nor empty!");
         }
     }
 
-    protected static <T> void throwIfNullOrEmpty(final Collection<T> strings) {
+    protected static <T> void throwIfNullOrEmpty(final Collection<T> strings, final String valueName) {
         if (isNullOrEmpty(strings)) {
-            throw new IllegalArgumentException("ids cannot be null, nor empty!");
+            throw new IllegalArgumentException(valueName + " cannot be null, nor empty!");
         }
     }
 
