@@ -15,8 +15,8 @@ package:
 check-dependency-updates:
 	./mvnw versions:display-dependency-updates
 
-## check-maven-central: Check the contents of a POM file against the rules of maven central
-check-maven-central:
+## check-pom-xml: Check the contents of a POM file against the rules of maven central
+check-pom-xml:
 	./mvnw org.kordamp.maven:pomchecker-maven-plugin:1.1.0:check-maven-central
 
-.PHONY: help verify package check-dependency-updates check-maven-central
+.PHONY: help verify package check-dependency-updates check-pom-xml
