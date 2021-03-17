@@ -1,6 +1,5 @@
 package com.github.mihaibogdaneugen.redisrepository;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -21,16 +20,16 @@ interface HashRedisRepository<T, SerializationType> {
 
     /**
      * Retrieves the entities with the given identifiers.
-     * @param ids The array of Strings identifiers of entities
-     * @return A list of entities
+     * @param ids The set of Strings identifiers of entities
+     * @return A set of entities
      */
-    List<T> get(final String... ids);
+    Set<T> get(final Set<String> ids);
 
     /**
      * Retrieves all entities from the current collection.
-     * @return A list of entities
+     * @return A set of entities
      */
-    List<T> getAll();
+    Set<T> getAll();
 
     /**
      * Checks if the entity with the specified identifier exists in the repository or not.
@@ -93,9 +92,9 @@ interface HashRedisRepository<T, SerializationType> {
 
     /**
      * Removes all entities with the given identifiers.
-     * @param ids The array of Strings identifiers of entities
+     * @param ids The set of Strings identifiers of entities
      */
-    void delete(final String... ids);
+    void delete(final Set<String> ids);
 
     /**
      * Removes all entities from the current collection.

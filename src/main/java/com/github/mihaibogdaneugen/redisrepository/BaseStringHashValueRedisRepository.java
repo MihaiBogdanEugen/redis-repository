@@ -3,7 +3,6 @@ package com.github.mihaibogdaneugen.redisrepository;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.exceptions.JedisException;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -79,18 +78,18 @@ public abstract class BaseStringHashValueRedisRepository<T>
      * Retrieves the entities with the given identifiers.<br/>
      * Note: This method calls the HMGET Redis command.
      * @see <a href="https://redis.io/commands/HMGET">HMGET</a>
-     * @param ids The array of Strings identifiers of entities
-     * @return A list of entities
+     * @param ids The set of Strings identifiers of entities
+     * @return A set of entities
      */
     @Override
-    public final List<T> get(final String... ids) {
-        throwIfNullOrEmpty(ids, "ids");
+    public final Set<T> get(final Set<String> ids) {
+        throwIfNullOrEmpty(ids);
         return getResult(jedis -> {
-            final var entities = jedis.hmget(parentKey, ids);
+            final var entities = jedis.hmget(parentKey, ids.toArray(String[]::new));
             return entities.stream()
                     .filter(RedisRepository::isNotNullNorEmptyNorBlank)
                     .map(this::convertFrom)
-                    .collect(Collectors.toList());
+                    .collect(Collectors.toSet());
         });
     }
 
@@ -98,14 +97,14 @@ public abstract class BaseStringHashValueRedisRepository<T>
      * Retrieves all entities from the current collection.<br/>
      * Note: This method calls the HGETALL Redis command.
      * @see <a href="https://redis.io/commands/HGETALL">HGETALL</a>
-     * @return A list of entities
+     * @return A set of entities
      */
     @Override
-    public final List<T> getAll() {
+    public final Set<T> getAll() {
         return getResult(jedis -> jedis.hgetAll(parentKey).values().stream()
                 .filter(RedisRepository::isNotNullNorEmptyNorBlank)
                 .map(this::convertFrom)
-                .collect(Collectors.toList()));
+                .collect(Collectors.toSet()));
     }
 
     /**
@@ -165,12 +164,12 @@ public abstract class BaseStringHashValueRedisRepository<T>
      * Removes all entities with the given identifiers.<br/>
      * Note: This method calls the HDEL Redis command.
      * @see <a href="https://redis.io/commands/HDEL">HDEL</a>
-     * @param ids The array of Strings identifiers of entities
+     * @param ids The set of Strings identifiers of entities
      */
     @Override
-    public final void delete(final String... ids) {
-        throwIfNullOrEmpty(ids, "ids");
-        execute(jedis -> jedis.hdel(parentKey, ids));
+    public final void delete(final Set<String> ids) {
+        throwIfNullOrEmpty(ids);
+        execute(jedis -> jedis.hdel(parentKey, ids.toArray(String[]::new)));
     }
 
     /**

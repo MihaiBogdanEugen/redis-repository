@@ -4,8 +4,6 @@ import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.exceptions.JedisException;
 import redis.clients.jedis.util.SafeEncoder;
 
-import java.util.Arrays;
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -70,7 +68,7 @@ public abstract class BaseBinaryHashValueRedisRepository<T>
     public final Optional<T> get(final String id) {
         throwIfNullOrEmptyOrBlank(id, "id");
         return getResult(jedis -> {
-            final var entity = jedis.hget(parentKey, getKey(id));
+            final var entity = jedis.hget(parentKey, SafeEncoder.encode(id));
             return isNullOrEmpty(entity)
                     ? Optional.empty()
                     : Optional.of(convertFrom(entity));
@@ -81,18 +79,18 @@ public abstract class BaseBinaryHashValueRedisRepository<T>
      * Retrieves the entities with the given identifiers.<br/>
      * Note: This method calls the HMGET Redis command.
      * @see <a href="https://redis.io/commands/HMGET">HMGET</a>
-     * @param ids The array of Strings identifiers of entities
-     * @return A list of entities
+     * @param ids The set of Strings identifiers of entities
+     * @return A set of entities
      */
     @Override
-    public final List<T> get(final String... ids) {
-        throwIfNullOrEmpty(ids, "ids");
+    public final Set<T> get(final Set<String> ids) {
+        throwIfNullOrEmpty(ids);
         return getResult(jedis -> {
             final var entities = jedis.hmget(parentKey, getKeys(ids));
             return entities.stream()
                     .filter(RedisRepository::isNotNullNorEmpty)
                     .map(this::convertFrom)
-                    .collect(Collectors.toList());
+                    .collect(Collectors.toSet());
         });
     }
 
@@ -100,14 +98,14 @@ public abstract class BaseBinaryHashValueRedisRepository<T>
      * Retrieves all entities from the current collection.<br/>
      * Note: This method calls the HGETALL Redis command.
      * @see <a href="https://redis.io/commands/HGETALL">HGETALL</a>
-     * @return A list of entities
+     * @return A set of entities
      */
     @Override
-    public final List<T> getAll() {
+    public final Set<T> getAll() {
         return getResult(jedis -> jedis.hgetAll(parentKey).values().stream()
                 .filter(RedisRepository::isNotNullNorEmpty)
                 .map(this::convertFrom)
-                .collect(Collectors.toList()));
+                .collect(Collectors.toSet()));
     }
 
     /**
@@ -120,7 +118,7 @@ public abstract class BaseBinaryHashValueRedisRepository<T>
     @Override
     public final Boolean exists(final String id) {
         throwIfNullOrEmptyOrBlank(id, "id");
-        return getResult(jedis -> jedis.hexists(parentKey, getKey(id)));
+        return getResult(jedis -> jedis.hexists(parentKey, SafeEncoder.encode(id)));
     }
 
     /**
@@ -134,7 +132,7 @@ public abstract class BaseBinaryHashValueRedisRepository<T>
     public final void set(final String id, final T entity) {
         throwIfNullOrEmptyOrBlank(id, "id");
         throwIfNull(entity, "entity");
-        execute(jedis -> jedis.hset(parentKey, getKey(id), convertTo(entity)));
+        execute(jedis -> jedis.hset(parentKey, SafeEncoder.encode(id), convertTo(entity)));
     }
 
     /**
@@ -148,7 +146,7 @@ public abstract class BaseBinaryHashValueRedisRepository<T>
     public final void setIfNotExist(final String id, final T entity) {
         throwIfNullOrEmptyOrBlank(id, "id");
         throwIfNull(entity, "entity");
-        execute(jedis -> jedis.hsetnx(parentKey, getKey(id), convertTo(entity)));
+        execute(jedis -> jedis.hsetnx(parentKey, SafeEncoder.encode(id), convertTo(entity)));
     }
 
     /**
@@ -160,18 +158,18 @@ public abstract class BaseBinaryHashValueRedisRepository<T>
     @Override
     public final void delete(final String id) {
         throwIfNullOrEmptyOrBlank(id, "id");
-        execute(jedis -> jedis.hdel(parentKey, getKey(id)));
+        execute(jedis -> jedis.hdel(parentKey, SafeEncoder.encode(id)));
     }
 
     /**
      * Removes all entities with the given identifiers.<br/>
      * Note: This method calls the HDEL Redis command.
      * @see <a href="https://redis.io/commands/HDEL">HDEL</a>
-     * @param ids The array of Strings identifiers of entities
+     * @param ids The set of Strings identifiers of entities
      */
     @Override
-    public final void delete(final String... ids) {
-        throwIfNullOrEmpty(ids, "ids");
+    public final void delete(final Set<String> ids) {
+        throwIfNullOrEmpty(ids);
         execute(jedis -> jedis.hdel(parentKey, getKeys(ids)));
     }
 
@@ -196,14 +194,10 @@ public abstract class BaseBinaryHashValueRedisRepository<T>
         return getResult(jedis -> jedis.hkeys(SafeEncoder.encode(parentKey)));
     }
 
-    private byte[] getKey(final String id) {
-        return SafeEncoder.encode(id);
-    }
-
-    private byte[][] getKeys(final String... ids) {
-        return Arrays.stream(ids)
+    private byte[][] getKeys(final Set<String> ids) {
+        return ids.stream()
                 .filter(RedisRepository::isNotNullNorEmptyNorBlank)
-                .map(this::getKey)
+                .map(SafeEncoder::encode)
                 .toArray(byte[][]::new);
     }
 }

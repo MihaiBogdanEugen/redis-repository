@@ -5,6 +5,7 @@ import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.commands.ScriptingCommands;
 import redis.clients.jedis.exceptions.JedisException;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -128,6 +129,12 @@ abstract class RedisRepository implements ScriptingCommands {
         }
     }
 
+    protected static <T> void throwIfNullOrEmpty(final Collection<T> strings) {
+        if (isNullOrEmpty(strings)) {
+            throw new IllegalArgumentException("ids cannot be null, nor empty!");
+        }
+    }
+
     protected static void throwIfNullOrEmptyOrBlank(final String value, final String valueName) {
         if (isNullOrEmptyOrBlank(value)) {
             throw new IllegalArgumentException(valueName + " cannot be null, nor empty!");
@@ -144,16 +151,16 @@ abstract class RedisRepository implements ScriptingCommands {
         return bytes == null || bytes.length == 0;
     }
 
-    protected static boolean isNullOrEmpty(final String[] strings) {
+    protected static <T> boolean isNullOrEmpty(final T[] strings) {
         return strings == null || strings.length == 0;
     }
 
-    protected static <T> boolean isNotNullNorEmpty(final List<T> list) {
-        return list != null && !list.isEmpty();
+    protected static <T> boolean isNullOrEmpty(final Collection<T> collection) {
+        return collection == null || collection.isEmpty();
     }
 
     protected static <T> boolean isNotNullNorEmpty(final Map<T, T> map) {
-        return map != null && !map.isEmpty();
+        return !isNullOrEmpty(map);
     }
 
     protected static <T> boolean isNullOrEmpty(final Map<T, T> map) {

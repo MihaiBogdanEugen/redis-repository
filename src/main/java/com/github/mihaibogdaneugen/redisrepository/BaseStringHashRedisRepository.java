@@ -91,12 +91,12 @@ public abstract class BaseStringHashRedisRepository<T>
      * @see <a href="https://redis.io/commands/PIPELINED">PIPELINED</a>
      * @see <a href="https://redis.io/commands/HGETALL">HGETALL</a>
      * @see <a href="https://redis.io/commands/SYNC">SYNC</a>
-     * @param ids The array of Strings identifiers of entities
-     * @return A list of entities
+     * @param ids The set of Strings identifiers of entities
+     * @return A set of entities
      */
     @Override
-    public final List<T> get(final String... ids) {
-        throwIfNullOrEmpty(ids, "ids");
+    public final Set<T> get(final Set<String> ids) {
+        throwIfNullOrEmpty(ids);
         final var keys = getKeys(ids);
         return getByKeys(keys);
     }
@@ -112,11 +112,11 @@ public abstract class BaseStringHashRedisRepository<T>
      * @see <a href="https://redis.io/commands/PIPELINED">PIPELINED</a>
      * @see <a href="https://redis.io/commands/HGETALL">HGETALL</a>
      * @see <a href="https://redis.io/commands/SYNC">SYNC</a>
-     * @return A list of entities
+     * @return A set of entities
      */
     @Override
-    public final List<T> getAll() {
-        final var keys = getAllKeysArray();
+    public final Set<T> getAll() {
+        final var keys = getAllKeys();
         return getByKeys(keys);
     }
 
@@ -245,7 +245,7 @@ public abstract class BaseStringHashRedisRepository<T>
                 transaction.hset(key, newValue);
                 results = transaction.exec();
             }
-            return Optional.of(isNotNullNorEmpty(results));
+            return Optional.of(!isNullOrEmpty(results));
         });
     }
 
@@ -289,7 +289,7 @@ public abstract class BaseStringHashRedisRepository<T>
                 transaction.hset(key, newValue);
                 results = transaction.exec();
             }
-            return Optional.of(isNotNullNorEmpty(results));
+            return Optional.of(!isNullOrEmpty(results));
         });
     }
 
@@ -341,7 +341,7 @@ public abstract class BaseStringHashRedisRepository<T>
                 transaction.del(key);
                 results = transaction.exec();
             }
-            return Optional.of(isNotNullNorEmpty(results));
+            return Optional.of(!isNullOrEmpty(results));
         });
     }
 
@@ -349,12 +349,12 @@ public abstract class BaseStringHashRedisRepository<T>
      * Removes all entities with the given identifiers.<br/>
      * Note: This method calls the DEL Redis command.
      * @see <a href="https://redis.io/commands/DEL">DEL</a>
-     * @param ids The array of Strings identifiers of entities
+     * @param ids The set of Strings identifiers of entities
      */
     @Override
-    public final void delete(final String... ids) {
-        throwIfNullOrEmpty(ids, "ids");
-        final var keys = getKeys(ids);
+    public final void delete(final Set<String> ids) {
+        throwIfNullOrEmpty(ids);
+        final var keys = getKeys(ids).toArray(String[]::new);
         execute(jedis -> jedis.del(keys));
     }
 
@@ -369,7 +369,7 @@ public abstract class BaseStringHashRedisRepository<T>
      */
     @Override
     public final void deleteAll() {
-        final var keys = getAllKeysArray();
+        final var keys = getAllKeys().toArray(String[]::new);
         execute(jedis -> jedis.del(keys));
     }
 
@@ -453,33 +453,29 @@ public abstract class BaseStringHashRedisRepository<T>
         return getResult(jedis -> jedis.keys(allKeysPattern));
     }
 
-    private List<T> getByKeys(final String... keys) {
+    private Set<T> getByKeys(final Set<String> keys) {
         return getResult(jedis -> {
             final var responses = new ArrayList<Response<Map<String, String>>>();
             try (final var pipeline = jedis.pipelined()) {
-                Arrays.stream(keys).forEach(key -> responses.add(pipeline.hgetAll(key)));
+                keys.forEach(key -> responses.add(pipeline.hgetAll(key)));
                 pipeline.sync();
             }
             return responses.stream()
                     .map(Response::get)
                     .filter(RedisRepository::isNotNullNorEmpty)
                     .map(this::convertFrom)
-                    .collect(Collectors.toList());
+                    .collect(Collectors.toSet());
         });
     }
 
-    private String[] getKeys(final String... keySuffixes) {
-        return Arrays.stream(keySuffixes)
+    private Set<String> getKeys(final Set<String> keySuffixes) {
+        return keySuffixes.stream()
                 .filter(RedisRepository::isNotNullNorEmptyNorBlank)
                 .map(this::getKey)
-                .toArray(String[]::new);
+                .collect(Collectors.toSet());
     }
 
     private String getKey(final String keySuffix) {
         return keyPrefix + keySuffix;
-    }
-
-    private String[] getAllKeysArray() {
-        return getAllKeys().toArray(String[]::new);
     }
 }

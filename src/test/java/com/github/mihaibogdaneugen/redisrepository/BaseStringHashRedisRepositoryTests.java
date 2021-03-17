@@ -200,11 +200,11 @@ final class BaseStringHashRedisRepositoryTests extends RedisTestContainer {
     @Test
     void testGetMultipleInvalidArgument() {
         final var nullIdError = assertThrows(IllegalArgumentException.class, () ->
-                repository.get((String[]) null));
+                repository.get((Set<String>) null));
         assertEquals("ids cannot be null, nor empty!", nullIdError.getMessage());
 
         final var emptyIdError = assertThrows(IllegalArgumentException.class, () ->
-                repository.get(new String[0]));
+                repository.get(Collections.emptySet()));
         assertEquals("ids cannot be null, nor empty!", emptyIdError.getMessage());
     }
 
@@ -216,7 +216,7 @@ final class BaseStringHashRedisRepositoryTests extends RedisTestContainer {
         insert(expectedPerson2);
         final var expectedPerson3 = Person.random();
         insert(expectedPerson3);
-        final var actualResult = repository.get(expectedPerson1.getId(), randomString(), expectedPerson3.getId());
+        final var actualResult = repository.get(Set.of(expectedPerson1.getId(), randomString(), expectedPerson3.getId()));
         assertEquals(2, actualResult.size());
         final var actualResultAsMap = actualResult.stream().collect(Collectors.toMap(Person::getId, x -> x));
         assertEquals(expectedPerson1, actualResultAsMap.get(expectedPerson1.getId()));
@@ -235,7 +235,7 @@ final class BaseStringHashRedisRepositoryTests extends RedisTestContainer {
         insert(unexpectedPerson1);
         final var unexpectedPerson2 = Person.random();
         insert(unexpectedPerson2);
-        final var actualResult = repository.get(expectedPerson1.getId(), expectedPerson2.getId(), expectedPerson3.getId());
+        final var actualResult = repository.get(Set.of(expectedPerson1.getId(), expectedPerson2.getId(), expectedPerson3.getId()));
         assertEquals(3, actualResult.size());
         final var actualResultAsMap = actualResult.stream().collect(Collectors.toMap(Person::getId, x -> x));
         assertEquals(expectedPerson1, actualResultAsMap.get(expectedPerson1.getId()));
@@ -249,7 +249,7 @@ final class BaseStringHashRedisRepositoryTests extends RedisTestContainer {
                 .mapToObj(i -> Person.random())
                 .collect(Collectors.toMap(Person::getId, person -> person));
         expectedPeopleMap.values().forEach(this::insert);
-        final var ids = expectedPeopleMap.keySet().toArray(String[]::new);
+        final var ids = expectedPeopleMap.keySet();
         final var actualResult = repository.get(ids);
         assertEquals(50, actualResult.size());
         final var actualPeopleMap = actualResult.stream().collect(Collectors.toMap(Person::getId, x -> x));
@@ -775,12 +775,11 @@ final class BaseStringHashRedisRepositoryTests extends RedisTestContainer {
     @Test
     void testDeleteMultipleInvalidArgument() {
         final var nullIdError = assertThrows(IllegalArgumentException.class, () ->
-                repository.delete((String[])null));
+                repository.delete((Set<String>) null));
         assertEquals("ids cannot be null, nor empty!", nullIdError.getMessage());
 
-        @SuppressWarnings("RedundantArrayCreation")
         final var emptyIdError = assertThrows(IllegalArgumentException.class, () ->
-                repository.delete(new String[0]));
+                repository.delete(Collections.emptySet()));
         assertEquals("ids cannot be null, nor empty!", emptyIdError.getMessage());
     }
 
@@ -792,7 +791,7 @@ final class BaseStringHashRedisRepositoryTests extends RedisTestContainer {
         insert(expectedPerson2);
         final var expectedPerson3 = Person.random();
         insert(expectedPerson3);
-        repository.delete(expectedPerson1.getId(), randomString(), expectedPerson3.getId());
+        repository.delete(Set.of(expectedPerson1.getId(), randomString(), expectedPerson3.getId()));
         final var actualPerson1 = get(expectedPerson1.getId());
         final var actualPerson2 = get(expectedPerson2.getId());
         final var actualPerson3 = get(expectedPerson3.getId());
@@ -814,7 +813,7 @@ final class BaseStringHashRedisRepositoryTests extends RedisTestContainer {
         insert(expectedPerson4);
         final var expectedPerson5 = Person.random();
         insert(expectedPerson5);
-        repository.delete(expectedPerson1.getId(), expectedPerson2.getId(), expectedPerson3.getId());
+        repository.delete(Set.of(expectedPerson1.getId(), expectedPerson2.getId(), expectedPerson3.getId()));
         final var actualPerson1 = get(expectedPerson1.getId());
         final var actualPerson2 = get(expectedPerson2.getId());
         final var actualPerson3 = get(expectedPerson3.getId());
@@ -835,7 +834,7 @@ final class BaseStringHashRedisRepositoryTests extends RedisTestContainer {
                 .mapToObj(i -> Person.random())
                 .collect(Collectors.toMap(Person::getId, person -> person));
         expectedPeopleMap.values().forEach(this::insert);
-        repository.delete(expectedPeopleMap.keySet().toArray(String[]::new));
+        repository.delete(expectedPeopleMap.keySet());
         expectedPeopleMap.keySet().forEach(key -> {
             final var result = get(key);
             assertTrue(result.isEmpty());

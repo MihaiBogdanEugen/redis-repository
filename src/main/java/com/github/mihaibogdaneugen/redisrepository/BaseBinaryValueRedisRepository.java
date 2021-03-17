@@ -5,7 +5,6 @@ import redis.clients.jedis.exceptions.JedisException;
 import redis.clients.jedis.params.SetParams;
 import redis.clients.jedis.util.SafeEncoder;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -89,12 +88,12 @@ public abstract class BaseBinaryValueRedisRepository<T>
      * Retrieves the entities with the given identifiers.<br/>
      * Note: This method calls the MGET Redis command.
      * @see <a href="https://redis.io/commands/MGET">MGET</a>
-     * @param ids The array of Strings identifiers of entities
-     * @return A list of entities
+     * @param ids The set of Strings identifiers of entities
+     * @return A set of entities
      */
     @Override
-    public final List<T> get(final String... ids) {
-        throwIfNullOrEmpty(ids, "ids");
+    public final Set<T> get(final Set<String> ids) {
+        throwIfNullOrEmpty(ids);
         final var keys = getKeys(ids);
         return getByKeys(keys);
     }
@@ -107,11 +106,11 @@ public abstract class BaseBinaryValueRedisRepository<T>
      * Note: This method calls the KEYS and MGET Redis commands.
      * @see <a href="https://redis.io/commands/KEYS">KEYS</a>
      * @see <a href="https://redis.io/commands/MGET">MGET</a>
-     * @return A list of entities
+     * @return A set of entities
      */
     @Override
-    public final List<T> getAll() {
-        final var keys = getAllKeysArray();
+    public final Set<T> getAll() {
+        final var keys = getAllKeysBinary();
         return getByKeys(keys);
     }
 
@@ -208,7 +207,7 @@ public abstract class BaseBinaryValueRedisRepository<T>
                 transaction.set(key, newValue);
                 results = transaction.exec();
             }
-            return Optional.of(isNotNullNorEmpty(results));
+            return Optional.of(!isNullOrEmpty(results));
         });
     }
 
@@ -253,7 +252,7 @@ public abstract class BaseBinaryValueRedisRepository<T>
                 transaction.set(key, newValue);
                 results = transaction.exec();
             }
-            return Optional.of(isNotNullNorEmpty(results));
+            return Optional.of(!isNullOrEmpty(results));
         });
     }
 
@@ -305,7 +304,7 @@ public abstract class BaseBinaryValueRedisRepository<T>
                 transaction.del(key);
                 results = transaction.exec();
             }
-            return Optional.of(isNotNullNorEmpty(results));
+            return Optional.of(!isNullOrEmpty(results));
         });
     }
 
@@ -313,12 +312,12 @@ public abstract class BaseBinaryValueRedisRepository<T>
      * Removes all entities with the given identifiers.<br/>
      * Note: This method calls the DEL Redis command.
      * @see <a href="https://redis.io/commands/DEL">DEL</a>
-     * @param ids The array of Strings identifiers of entities
+     * @param ids The set of Strings identifiers of entities
      */
     @Override
-    public final void delete(final String... ids) {
-        throwIfNullOrEmpty(ids, "ids");
-        final var keys = getKeys(ids);
+    public final void delete(final Set<String> ids) {
+        throwIfNullOrEmpty(ids);
+        final var keys = getKeys(ids).toArray(byte[][]::new);
         execute(jedis -> jedis.del(keys));
     }
 
@@ -333,7 +332,7 @@ public abstract class BaseBinaryValueRedisRepository<T>
      */
     @Override
     public final void deleteAll() {
-        final var keys = getAllKeysArray();
+        final var keys = getAllKeysBinary().toArray(byte[][]::new);
         execute(jedis -> jedis.del(keys));
     }
 
@@ -389,31 +388,31 @@ public abstract class BaseBinaryValueRedisRepository<T>
      */
     @Override
     public final Set<String> getAllKeys() {
-        return getResult(jedis -> jedis.keys(SafeEncoder.encode(allKeysPattern)));
+        return getResult(jedis -> jedis.keys((SafeEncoder.encode(allKeysPattern))));
     }
 
     private byte[] getKey(final String keySuffix) {
         return SafeEncoder.encode(keyPrefix + keySuffix);
     }
 
-    private byte[][] getKeys(final String... keySuffixes) {
-        return Arrays.stream(keySuffixes)
+    private Set<byte[]> getKeys(final Set<String> keySuffixes) {
+        return keySuffixes.stream()
                 .filter(RedisRepository::isNotNullNorEmptyNorBlank)
                 .map(this::getKey)
-                .toArray(byte[][]::new);
+                .collect(Collectors.toSet());
     }
 
-    private List<T> getByKeys(final byte[]... keys) {
+    private Set<T> getByKeys(final Set<byte[]> keys) {
         return getResult(jedis -> {
-            final var values = jedis.mget(keys);
+            final var values = jedis.mget(keys.toArray(byte[][]::new));
             return values.stream()
                     .filter(RedisRepository::isNotNullNorEmpty)
                     .map(this::convertFrom)
-                    .collect(Collectors.toList());
+                    .collect(Collectors.toSet());
         });
     }
 
-    private byte[][] getAllKeysArray() {
-        return getResult(jedis -> jedis.keys(allKeysPattern).toArray(byte[][]::new));
+    private Set<byte[]> getAllKeysBinary() {
+        return getResult(jedis -> jedis.keys((allKeysPattern)));
     }
 }
