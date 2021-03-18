@@ -37,14 +37,13 @@ jobs:
           java-version: "11"
           server-id: central
           gpg-passphrase: MAVEN_GPG_PASSPHRASE
-          gpg-private-key: MAVEN_GPG_PRIVATE_KEY
+          gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
           server-password: MAVEN_PASSWORD
           server-username: MAVEN_USERNAME
 
       - name: release
         env:
           MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-          MAVEN_GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
           MAVEN_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
           MAVEN_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
         run: |
