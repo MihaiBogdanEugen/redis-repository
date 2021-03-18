@@ -17,6 +17,10 @@ check-dependency-updates:
 
 ## check-pom-xml: Check the contents of a POM file against the rules of maven central
 check-pom-xml:
-	./mvnw org.kordamp.maven:pomchecker-maven-plugin:1.1.0:check-maven-central
+	./mvnw enforcer:enforce
 
-.PHONY: help verify package check-dependency-updates check-pom-xml
+## local-deploy: Deploy locally a snapshot version
+local-deploy:
+	./mvnw -Ppublication,local-deploy -Dlocal.repository.path=$(shell pwd)/target/repository deploy
+
+.PHONY: help verify package check-dependency-updates check-pom-xml local-deploy
