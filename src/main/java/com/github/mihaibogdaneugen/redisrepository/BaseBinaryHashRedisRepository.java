@@ -12,7 +12,7 @@ import java.util.stream.Collectors;
 
 /**
  * A RedisRepository for a specified entity type, where all entities are serialized as maps of <br/>
- * binary values and stored as key-maps pairs (Redis hashes) <br/>
+ * binary values and stored as key-maps pairs (Redis hashes.<br/>
  * Design details:<br/>
  * - every entity has a String identifier, but this is not enforced as part of the type itself.<br/>
  * - every entity is part of a collection that groups all entities with the same type<br/>
