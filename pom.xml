@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.github.mihaibogdaneugen.redisrepository</groupId>
     <artifactId>redis-repository</artifactId>
-    <version>0.0.3-SNAPSHOT</version>
+    <version>0.0.2-SNAPSHOT</version>
     <packaging>jar</packaging>
     <name>redis-repository</name>
     <description>Generic Redis repository that aims to simplify your data access layer code.</description>
@@ -53,7 +53,7 @@
         <maven.compiler.source>${java.version}</maven.compiler.source>
         <maven.compiler.target>${java.version}</maven.compiler.target>
         <maven.version>3.6.3</maven.version>
-        <nexus.url>https://oss.sonatype.org</nexus.url>
+        <nexus.url>https://s01.oss.sonatype.org</nexus.url>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <repository.url>git@github.com:MihaiBogdanEugen/redis-repository.git</repository.url>
         <version.jackson>2.12.2</version.jackson>
