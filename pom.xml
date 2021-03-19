@@ -18,7 +18,7 @@
     <scm>
         <connection>scm:git:git@github.com:MihaiBogdanEugen/redis-repository.git</connection>
         <developerConnection>scm:git:git@github.com:MihaiBogdanEugen/redis-repository.git</developerConnection>
-        <url>https://github.com/MihaiBogdanEugen/redis-repository</url>
+        <url>git@github.com:MihaiBogdanEugen/redis-repository.git</url>
         <tag>HEAD</tag>
     </scm>
     <developers>
