@@ -16,16 +16,15 @@
         </license>
     </licenses>
     <scm>
-        <connection>scm:git:${repository.url}</connection>
-        <developerConnection>scm:git:${repository.url}</developerConnection>
-        <url>${repository.url}</url>
+        <connection>scm:git:git@github.com:MihaiBogdanEugen/redis-repository.git</connection>
+        <developerConnection>scm:git:git@github.com:MihaiBogdanEugen/redis-repository.git</developerConnection>
+        <url>https://github.com/MihaiBogdanEugen/redis-repository</url>
         <tag>HEAD</tag>
     </scm>
     <developers>
         <developer>
             <id>MihaiBogdanEugen</id>
             <name>Bogdan-Eugen Mihai</name>
-            <email>mihai.bogdan.eugen@gmail.com</email>
             <url>https://github.com/MihaiBogdanEugen</url>
             <roles>
                 <role>developer</role>
@@ -55,7 +54,6 @@
         <maven.version>3.6.3</maven.version>
         <nexus.url>https://s01.oss.sonatype.org</nexus.url>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <repository.url>git@github.com:MihaiBogdanEugen/redis-repository.git</repository.url>
         <version.jackson>2.12.2</version.jackson>
         <version.jedis>3.5.2</version.jedis>
         <version.junit>5.7.1</version.junit>
