@@ -12,20 +12,11 @@ import java.util.function.Function;
 
 abstract class RedisRepository implements AutoCloseable {
 
-    protected static final String DEFAULT_KEY_SEPARATOR = ":";
-
-    protected final JedisPool jedisPool;
-    protected final Consumer<JedisException> jedisExceptionInterceptor;
-
-    public RedisRepository(final JedisPool jedisPool) {
-        throwIfNull(jedisPool, "jedisPool");
-        this.jedisPool = jedisPool;
-        this.jedisExceptionInterceptor = null;
-    }
+    private final JedisPool jedisPool;
+    private final Consumer<JedisException> jedisExceptionInterceptor;
 
     public RedisRepository(final JedisPool jedisPool, final Consumer<JedisException> jedisExceptionInterceptor) {
         throwIfNull(jedisPool, "jedisPool");
-        throwIfNull(jedisExceptionInterceptor, "jedisExceptionInterceptor");
         this.jedisPool = jedisPool;
         this.jedisExceptionInterceptor = jedisExceptionInterceptor;
     }

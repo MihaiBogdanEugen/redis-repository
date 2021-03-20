@@ -1,12 +1,8 @@
 package com.github.mihaibogdaneugen.redisrepository;
 
-import redis.clients.jedis.JedisPool;
-import redis.clients.jedis.exceptions.JedisException;
-
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 /**
@@ -32,34 +28,12 @@ public abstract class BaseStringHashValueRedisRepository<T>
     private String sha1LuaScriptDeleteIfItIsNot;
 
     /**
-     * Builds a BaseStringHashValueRedisRepository, based on a jedisPool object, for a specific collection.<br/>
-     * For every operation, a Jedis object is retrieved from the pool and closed at the end.
-     * @param jedisPool The JedisPool object
-     * @param parentKey The name of the collection used as the parent key
+     * Builds a BaseStringHashValueRedisRepository based on a configuration object.
+     * @param configuration RedisRepositoryConfiguration object
      */
-    public BaseStringHashValueRedisRepository(final JedisPool jedisPool, final String parentKey) {
-        super(jedisPool);
-        throwIfNullOrEmptyOrBlank(parentKey, "parentKey");
-        if (parentKey.contains(DEFAULT_KEY_SEPARATOR)) {
-            throw new IllegalArgumentException("Parent key `" + parentKey + "` cannot contain `" + DEFAULT_KEY_SEPARATOR + "`!");
-        }
-        this.parentKey = parentKey;
-    }
-
-    /**
-     * Builds a BaseStringHashValueRedisRepository, based on a jedisPool object, for a specific collection, with an interceptor for JedisExceptions.<br/>
-     * For every operation, a Jedis object is retrieved from the pool and closed at the end.
-     * @param jedisPool The JedisPool object
-     * @param parentKey The name of the collection used as the parent key
-     * @param jedisExceptionInterceptor Consumer of errors of type JedisException
-     */
-    public BaseStringHashValueRedisRepository(final JedisPool jedisPool, final String parentKey, final Consumer<JedisException> jedisExceptionInterceptor) {
-        super(jedisPool, jedisExceptionInterceptor);
-        throwIfNullOrEmptyOrBlank(parentKey, "parentKey");
-        if (parentKey.contains(DEFAULT_KEY_SEPARATOR)) {
-            throw new IllegalArgumentException("Parent key `" + parentKey + "` cannot contain `" + DEFAULT_KEY_SEPARATOR + "`!");
-        }
-        this.parentKey = parentKey;
+    public BaseStringHashValueRedisRepository(final RedisRepositoryConfiguration configuration) {
+        super(configuration.getJedisPool(), configuration.getJedisExceptionInterceptor());
+        this.parentKey = configuration.getCollectionKey();
     }
 
     /**
