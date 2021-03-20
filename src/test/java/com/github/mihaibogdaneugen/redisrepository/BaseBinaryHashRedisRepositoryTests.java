@@ -92,6 +92,7 @@ final class BaseBinaryHashRedisRepositoryTests extends RedisTestContainer {
     @AfterAll
     static void afterAll() {
         jedis.close();
+        repository.close();
     }
 
     @BeforeEach

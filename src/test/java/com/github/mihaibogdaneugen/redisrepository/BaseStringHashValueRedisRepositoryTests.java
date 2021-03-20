@@ -66,6 +66,7 @@ final class BaseStringHashValueRedisRepositoryTests extends RedisTestContainer {
     @AfterAll
     static void afterAll() {
         jedis.close();
+        repository.close();
     }
 
     @BeforeEach

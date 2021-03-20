@@ -10,7 +10,7 @@ import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-abstract class RedisRepository {
+abstract class RedisRepository implements AutoCloseable {
 
     protected static final String DEFAULT_KEY_SEPARATOR = ":";
 
@@ -28,6 +28,11 @@ abstract class RedisRepository {
         throwIfNull(jedisExceptionInterceptor, "jedisExceptionInterceptor");
         this.jedisPool = jedisPool;
         this.jedisExceptionInterceptor = jedisExceptionInterceptor;
+    }
+
+    @Override
+    public void close() {
+        this.jedisPool.close();
     }
 
     protected <T> T getResult(final Function<Jedis, T> operation) {
