@@ -1,4 +1,4 @@
-package com.github.mihaibogdaneugen.redisrepository.cluster;
+package com.github.mihaibogdaneugen.redisrepository;
 
 import redis.clients.jedis.JedisSlotBasedConnectionHandler;
 import redis.clients.jedis.exceptions.JedisException;

@@ -1,7 +1,4 @@
-package com.github.mihaibogdaneugen.redisrepository.cluster;
-
-import com.github.mihaibogdaneugen.redisrepository.BinaryHashValueRedisRepository;
-import redis.clients.jedis.util.SafeEncoder;
+package com.github.mihaibogdaneugen.redisrepository;
 
 import java.util.HashSet;
 import java.util.List;
@@ -9,20 +6,20 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public abstract class BaseBinaryHashValueClusterRedisRepository<T>
+public abstract class BaseStringHashValueClusterRedisRepository<T>
     extends ClusterRedisRepository
-    implements BinaryHashValueRedisRepository<T> {
+    implements StringHashValueRedisRepository<T> {
 
-    private final byte[] parentKey;
+    private final String parentKey;
 
-    private byte[] sha1LuaScriptUpdateIfItIs;
-    private byte[] sha1LuaScriptUpdateIfItIsNot;
-    private byte[] sha1LuaScriptDeleteIfItIs;
-    private byte[] sha1LuaScriptDeleteIfItIsNot;
+    private String sha1LuaScriptUpdateIfItIs;
+    private String sha1LuaScriptUpdateIfItIsNot;
+    private String sha1LuaScriptDeleteIfItIs;
+    private String sha1LuaScriptDeleteIfItIsNot;
 
-    public BaseBinaryHashValueClusterRedisRepository(final ClusterRedisRepositoryConfiguration configuration) {
+    public BaseStringHashValueClusterRedisRepository(final ClusterRedisRepositoryConfiguration configuration) {
         super(configuration.getJedisSlotBasedConnectionHandler(), configuration.getJedisExceptionInterceptor(), configuration.getMaxAttempts());
-        this.parentKey = SafeEncoder.encode(configuration.getCollectionKey());
+        this.parentKey = configuration.getCollectionKey();
     }
 
     /**
@@ -35,9 +32,9 @@ public abstract class BaseBinaryHashValueClusterRedisRepository<T>
     @Override
     public Optional<T> get(final String id) {
         throwIfNullOrEmptyOrBlank(id, "id");
-        return runBinaryClusterCommand(parentKey, jedis -> {
-            final var entity = jedis.hget(parentKey, SafeEncoder.encode(id));
-            return isNullOrEmpty(entity)
+        return runClusterCommand(parentKey, jedis -> {
+            final var entity = jedis.hget(parentKey, id);
+            return isNullOrEmptyOrBlank(entity)
                     ? Optional.empty()
                     : Optional.of(convertFrom(entity));
         });
@@ -53,10 +50,10 @@ public abstract class BaseBinaryHashValueClusterRedisRepository<T>
     @Override
     public Set<T> get(final Set<String> ids) {
         throwIfNullOrEmpty(ids, "ids");
-        return runBinaryClusterCommand(parentKey, jedis -> {
-            final var entities = jedis.hmget(parentKey, getKeys(ids));
+        return runClusterCommand(parentKey, jedis -> {
+            final var entities = jedis.hmget(parentKey, ids.toArray(String[]::new));
             return entities.stream()
-                    .filter(ClusterRedisRepository::isNotNullNorEmpty)
+                    .filter(ClusterRedisRepository::isNotNullNorEmptyNorBlank)
                     .map(this::convertFrom)
                     .collect(Collectors.toSet());
         });
@@ -70,8 +67,8 @@ public abstract class BaseBinaryHashValueClusterRedisRepository<T>
      */
     @Override
     public Set<T> getAll() {
-        return runBinaryClusterCommand(parentKey, jedis -> jedis.hgetAll(parentKey).values().stream()
-                .filter(ClusterRedisRepository::isNotNullNorEmpty)
+        return runClusterCommand(parentKey, jedis -> jedis.hgetAll(parentKey).values().stream()
+                .filter(ClusterRedisRepository::isNotNullNorEmptyNorBlank)
                 .map(this::convertFrom)
                 .collect(Collectors.toSet()));
     }
@@ -86,7 +83,7 @@ public abstract class BaseBinaryHashValueClusterRedisRepository<T>
     @Override
     public final Boolean exists(final String id) {
         throwIfNullOrEmptyOrBlank(id, "id");
-        return runBinaryClusterCommand(parentKey, jedis -> jedis.hexists(parentKey, SafeEncoder.encode(id)));
+        return runClusterCommand(parentKey, jedis -> jedis.hexists(parentKey, id));
     }
 
     /**
@@ -100,7 +97,7 @@ public abstract class BaseBinaryHashValueClusterRedisRepository<T>
     public final void set(final String id, final T entity) {
         throwIfNullOrEmptyOrBlank(id, "id");
         throwIfNull(entity, "entity");
-        runBinaryClusterCommand(parentKey, jedis -> jedis.hset(parentKey, SafeEncoder.encode(id), convertTo(entity)));
+        runClusterCommand(parentKey, jedis -> jedis.hset(parentKey, id, convertTo(entity)));
     }
 
     /**
@@ -114,7 +111,7 @@ public abstract class BaseBinaryHashValueClusterRedisRepository<T>
     public final void setIfDoesNotExist(final String id, final T entity) {
         throwIfNullOrEmptyOrBlank(id, "id");
         throwIfNull(entity, "entity");
-        runBinaryClusterCommand(parentKey, jedis -> jedis.hsetnx(parentKey, SafeEncoder.encode(id), convertTo(entity)));
+        runClusterCommand(parentKey, jedis -> jedis.hsetnx(parentKey, id, convertTo(entity)));
     }
 
     /**
@@ -126,7 +123,7 @@ public abstract class BaseBinaryHashValueClusterRedisRepository<T>
     @Override
     public final void delete(final String id) {
         throwIfNullOrEmptyOrBlank(id, "id");
-        runBinaryClusterCommand(parentKey, jedis -> jedis.hdel(parentKey, SafeEncoder.encode(id)));
+        runClusterCommand(parentKey, jedis -> jedis.hdel(parentKey, id));
     }
 
     /**
@@ -138,7 +135,7 @@ public abstract class BaseBinaryHashValueClusterRedisRepository<T>
     @Override
     public final void delete(final Set<String> ids) {
         throwIfNullOrEmpty(ids, "ids");
-        runBinaryClusterCommand(parentKey, jedis -> jedis.hdel(parentKey, getKeys(ids)));
+        runClusterCommand(parentKey, jedis -> jedis.hdel(parentKey, ids.toArray(String[]::new)));
     }
 
     /**
@@ -148,7 +145,7 @@ public abstract class BaseBinaryHashValueClusterRedisRepository<T>
      */
     @Override
     public final void deleteAll() {
-        runBinaryClusterCommand(parentKey, jedis -> jedis.del(parentKey));
+        runClusterCommand(parentKey, jedis -> jedis.del(parentKey));
     }
 
     /**
@@ -159,7 +156,7 @@ public abstract class BaseBinaryHashValueClusterRedisRepository<T>
      */
     @Override
     public Set<String> getAllKeys() {
-        return runBinaryClusterCommand(parentKey, jedis -> jedis.hkeys(SafeEncoder.encode(parentKey)));
+        return runClusterCommand(parentKey, jedis -> jedis.hkeys(parentKey));
     }
 
     /**
@@ -175,12 +172,12 @@ public abstract class BaseBinaryHashValueClusterRedisRepository<T>
         throwIfNullOrEmptyOrBlank(id, "id");
         throwIfNull(oldValue, "oldValue");
         throwIfNull(newValue, "newValue");
-        if (isNullOrEmpty(sha1LuaScriptUpdateIfItIs)) {
-            sha1LuaScriptUpdateIfItIs = runBinaryClusterCommand(parentKey, jedis -> jedis.scriptLoad(SafeEncoder.encode(getLuaScriptUpdateIfItIs())));
+        if (isNullOrEmptyOrBlank(sha1LuaScriptUpdateIfItIs)) {
+            sha1LuaScriptUpdateIfItIs = runClusterCommand(parentKey, jedis -> jedis.scriptLoad(getLuaScriptUpdateIfItIs()));
         }
-        final var keys = List.of(parentKey, SafeEncoder.encode(id));
+        final var keys = List.of(parentKey, id);
         final var args = List.of(convertTo(oldValue), convertTo(newValue));
-        runBinaryClusterCommand(new HashSet<>(keys), jedis -> jedis.evalsha(sha1LuaScriptUpdateIfItIs, keys, args));
+        runClusterCommand(new HashSet<>(keys), jedis -> jedis.evalsha(sha1LuaScriptUpdateIfItIs, keys, args));
     }
 
     /**
@@ -196,12 +193,12 @@ public abstract class BaseBinaryHashValueClusterRedisRepository<T>
         throwIfNullOrEmptyOrBlank(id, "id");
         throwIfNull(oldValue, "oldValue");
         throwIfNull(newValue, "newValue");
-        if (isNullOrEmpty(sha1LuaScriptUpdateIfItIsNot)) {
-            sha1LuaScriptUpdateIfItIsNot = runBinaryClusterCommand(parentKey, jedis -> jedis.scriptLoad(SafeEncoder.encode(getLuaScriptUpdateIfItIsNot())));
+        if (isNullOrEmptyOrBlank(sha1LuaScriptUpdateIfItIsNot)) {
+            sha1LuaScriptUpdateIfItIsNot = runClusterCommand(parentKey, jedis -> jedis.scriptLoad(getLuaScriptUpdateIfItIsNot()));
         }
-        final var keys = List.of(parentKey, SafeEncoder.encode(id));
+        final var keys = List.of(parentKey, id);
         final var args = List.of(convertTo(oldValue), convertTo(newValue));
-        runBinaryClusterCommand(new HashSet<>(keys), jedis -> jedis.evalsha(sha1LuaScriptUpdateIfItIsNot, keys, args));
+        runClusterCommand(new HashSet<>(keys), jedis -> jedis.evalsha(sha1LuaScriptUpdateIfItIsNot, keys, args));
     }
 
     /**
@@ -215,12 +212,12 @@ public abstract class BaseBinaryHashValueClusterRedisRepository<T>
     public final void deleteIfItIs(final String id, final T oldValue) {
         throwIfNullOrEmptyOrBlank(id, "id");
         throwIfNull(oldValue, "oldValue");
-        if (isNullOrEmpty(sha1LuaScriptDeleteIfItIs)) {
-            sha1LuaScriptDeleteIfItIs = runBinaryClusterCommand(parentKey, jedis -> jedis.scriptLoad(SafeEncoder.encode(getLuaScriptDeleteIfItIs())));
+        if (isNullOrEmptyOrBlank(sha1LuaScriptDeleteIfItIs)) {
+            sha1LuaScriptDeleteIfItIs = runClusterCommand(parentKey, jedis -> jedis.scriptLoad(getLuaScriptDeleteIfItIs()));
         }
-        final var keys = List.of(parentKey, SafeEncoder.encode(id));
+        final var keys = List.of(parentKey, id);
         final var args = List.of(convertTo(oldValue));
-        runBinaryClusterCommand(new HashSet<>(keys), jedis -> jedis.evalsha(sha1LuaScriptDeleteIfItIs, keys, args));
+        runClusterCommand(new HashSet<>(keys), jedis -> jedis.evalsha(sha1LuaScriptDeleteIfItIs, keys, args));
     }
 
     /**
@@ -234,18 +231,11 @@ public abstract class BaseBinaryHashValueClusterRedisRepository<T>
     public final void deleteIfItIsNot(final String id, final T oldValue) {
         throwIfNullOrEmptyOrBlank(id, "id");
         throwIfNull(oldValue, "oldValue");
-        if (isNullOrEmpty(sha1LuaScriptDeleteIfItIsNot)) {
-            sha1LuaScriptDeleteIfItIsNot = runBinaryClusterCommand(parentKey, jedis -> jedis.scriptLoad(SafeEncoder.encode(getLuaScriptDeleteIfItIsNot())));
+        if (isNullOrEmptyOrBlank(sha1LuaScriptDeleteIfItIsNot)) {
+            sha1LuaScriptDeleteIfItIsNot = runClusterCommand(parentKey, jedis -> jedis.scriptLoad(getLuaScriptDeleteIfItIsNot()));
         }
-        final var keys = List.of(parentKey, SafeEncoder.encode(id));
+        final var keys = List.of(parentKey, id);
         final var args = List.of(convertTo(oldValue));
-        runBinaryClusterCommand(new HashSet<>(keys), jedis -> jedis.evalsha(sha1LuaScriptDeleteIfItIsNot, keys, args));
-    }
-
-    private byte[][] getKeys(final Set<String> ids) {
-        return ids.stream()
-                .filter(ClusterRedisRepository::isNotNullNorEmptyNorBlank)
-                .map(SafeEncoder::encode)
-                .toArray(byte[][]::new);
+        runClusterCommand(new HashSet<>(keys), jedis -> jedis.evalsha(sha1LuaScriptDeleteIfItIsNot, keys, args));
     }
 }
