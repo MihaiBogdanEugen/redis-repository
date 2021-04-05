@@ -1,158 +1,134 @@
 package com.github.mihaibogdaneugen.redisrepository;
 
-import redis.clients.jedis.Jedis;
-import redis.clients.jedis.JedisPool;
-import redis.clients.jedis.exceptions.JedisException;
-
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.function.Consumer;
+import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 
-abstract class RedisRepository implements AutoCloseable {
-
-    private final JedisPool jedisPool;
-    private final Consumer<JedisException> jedisExceptionInterceptor;
-
-    public RedisRepository(final JedisPool jedisPool, final Consumer<JedisException> jedisExceptionInterceptor) {
-        throwIfNull(jedisPool, "jedisPool");
-        this.jedisPool = jedisPool;
-        this.jedisExceptionInterceptor = jedisExceptionInterceptor;
-    }
-
-    @Override
-    public void close() {
-        this.jedisPool.close();
-    }
-
-    protected <T> T getResult(final Function<Jedis, T> operation) {
-        throwIfNull(operation, "operation");
-        try (final var jedis = jedisPool.getResource()) {
-            return operation.apply(jedis);
-        } catch (final JedisException exception) {
-            if (jedisExceptionInterceptor != null) {
-                jedisExceptionInterceptor.accept(exception);
-            }
-            throw exception;
-        }
-    }
-
-    protected void execute(final Consumer<Jedis> operation) {
-        throwIfNull(operation, "operation");
-        try (final var jedis = jedisPool.getResource()) {
-            operation.accept(jedis);
-        } catch (final JedisException exception) {
-            if (jedisExceptionInterceptor != null) {
-                jedisExceptionInterceptor.accept(exception);
-            }
-            throw exception;
-        }
-    }
+public interface RedisRepository<T> {
 
     /**
-     * Runs a given Lua script.
-     * @param script The Lua script
-     * @param keys The list of String keys
-     * @param args The list of String arguments
+     * Retrieves the entity with the given identifier.<br/>
+     * @param id The String identifier of the entity
+     * @return Optional object, empty if no such entity is found, or the object otherwise
      */
-    public final void eval(final String script, final List<String> keys, final List<String> args) {
-        throwIfNullOrEmptyOrBlank(script, "script");
-        throwIfNullOrEmpty(keys, "keys");
-        throwIfNullOrEmpty(args, "args");
-        execute(jedis -> jedis.eval(script, keys, args));
-    }
+    Optional<T> get(final String id);
 
     /**
-     * Runs a given Lua script.
-     * @param script The Lua script
+     * Retrieves the entities with the given identifiers.<br/>
+     * @param ids The set of Strings identifiers of entities
+     * @return A set of entities
      */
-    public final void eval(final String script) {
-        throwIfNullOrEmptyOrBlank(script, "script");
-        execute(jedis -> jedis.eval(script));
-    }
+    Set<T> get(final Set<String> ids);
 
     /**
-     * Runs a given Lua script expressed in a binary form.
-     * @param script The Lua script in a binary form
-     * @param keys The list of binary keys
-     * @param args The list of binary arguments
+     * Retrieves all entities from the current collection.<br/>
+     * @return A set of entities
      */
-    public final void eval(final byte[] script, final List<byte[]> keys, final List<byte[]> args) {
-        throwIfNullOrEmpty(script);
-        throwIfNullOrEmpty(keys, "keys");
-        throwIfNullOrEmpty(args, "args");
-        execute(jedis -> jedis.eval(script, keys, args));
-    }
+    Set<T> getAll();
 
     /**
-     * Runs a given Lua script expressed in a binary form.
-     * @param script The Lua script in a binary form
+     * Checks if the entity with the specified identifier exists in the repository or not.<br/>
+     * @param id The String identifier of the entity
+     * @return A Boolean object, true if it exists, false otherwise
      */
-    public final void eval(final byte[] script) {
-        throwIfNullOrEmpty(script);
-        execute(jedis -> jedis.eval(script));
-    }
+    Boolean exists(final String id);
 
-    protected static <T> void throwIfNull(final T object, final String valueName) {
-        if (object == null) {
-            throw new IllegalArgumentException(valueName + " cannot be null!");
-        }
-    }
+    /**
+     * Sets (updates or inserts) the given entity with the specified identifier.<br/>
+     * @param id The String identifier of the entity
+     * @param entity The entity to be set
+     */
+    void set(final String id, final T entity);
 
-    protected static void throwIfNullOrEmpty(final byte[] bytes) {
-        if (isNullOrEmpty(bytes)) {
-            throw new IllegalArgumentException("script cannot be null, nor empty!");
-        }
-    }
+    /**
+     * Sets the given entity with the specified identifier only if it does exist (update).
+     * @param id The String identifier of the entity
+     * @param entity The entity to be set
+     */
+    void setIfItDoesExist(final String id, final T entity);
 
-    protected static <T> void throwIfNullOrEmpty(final Collection<T> strings, final String valueName) {
-        if (isNullOrEmpty(strings)) {
-            throw new IllegalArgumentException(valueName + " cannot be null, nor empty!");
-        }
-    }
+    /**
+     * Sets the given entity with the specified identifier only if it does not exist (insert).
+     * @param id The String identifier of the entity
+     * @param entity The entity to be set
+     */
+    void setIfItDoesNotExist(final String id, final T entity);
 
-    protected static void throwIfNullOrEmptyOrBlank(final String value, final String valueName) {
-        if (isNullOrEmptyOrBlank(value)) {
-            throw new IllegalArgumentException(valueName + " cannot be null, nor empty!");
-        }
-    }
+    /**
+     * Updates the entity with the specified identifier by calling the `updater` function.
+     * @param id The String identifier of the entity
+     * @param updater A function that updates the entity
+     * @return Optional object, empty if no such entity exists, or boolean value indicating the status of the transaction
+     */
+    Optional<Boolean> update(final String id, final Function<T, T> updater);
 
-    protected static void throwIfNegative(final long value, final String valueName) {
-        if (value < 0) {
-            throw new IllegalArgumentException(valueName + " cannot have a negative value!");
-        }
-    }
+    /**
+     * Updates the entity with the specified identifier by calling the `updater` function only if the condition returns true (conditional update).
+     * @param id The String identifier of the entity
+     * @param updater A function that updates the entity
+     * @param condition A function that represents the condition for the update to happen
+     * @return Optional object, empty if no such entity exists, or boolean value indicating the status of the transaction
+     */
+    Optional<Boolean> update(final String id, final Function<T, T> updater, final Function<T, Boolean> condition);
 
-    protected static boolean isNullOrEmpty(final byte[] bytes) {
-        return bytes == null || bytes.length == 0;
-    }
+    /**
+     * Removes the entity with the given identifier.<br/>
+     * @param id The String identifier of the entity
+     */
+    void delete(final String id);
 
-    protected static <T> boolean isNullOrEmpty(final T[] strings) {
-        return strings == null || strings.length == 0;
-    }
+    /**
+     * Removes the entity with the given identifier only if the condition returns true (conditional delete).
+     * @param id The String identifier of the entity
+     * @param condition A function that represents the condition for the delete to happen
+     @return Optional object, empty if no such entity exists, or boolean value indicating the status of the transaction
+     */
+    Optional<Boolean> delete(final String id, final Function<T, Boolean> condition);
 
-    protected static <T> boolean isNullOrEmpty(final Collection<T> collection) {
-        return collection == null || collection.isEmpty();
-    }
+    /**
+     * Removes all entities with the given identifiers.<br/>
+     * @param ids The set of Strings identifiers of entities
+     */
+    void delete(final Set<String> ids);
 
-    protected static <T> boolean isNotNullNorEmpty(final Map<T, T> map) {
-        return !isNullOrEmpty(map);
-    }
+    /**
+     * Removes all entities from the current collection.<br/>
+     */
+    void deleteAll();
 
-    protected static <T> boolean isNullOrEmpty(final Map<T, T> map) {
-        return map == null || map.isEmpty();
-    }
+    /**
+     * Retrieve all keys of all entities in the current collection.
+     * @return Set of String objects representing entity identifiers
+     */
+    Set<String> getAllIds();
 
-    protected static boolean isNullOrEmptyOrBlank(final String text) {
-        return text == null || text.isEmpty() || text.isBlank();
-    }
+    /**
+     * Update the entity identified by the given identifier to the new provided value if its old value is equal with the given one.
+     * @param id The String identifier of the entity
+     * @param oldValue The old value of the entity
+     * @param newValue The new value of the entity
+     */
+    void updateIfItIs(final String id, final T oldValue, final T newValue);
 
-    protected static boolean isNotNullNorEmptyNorBlank(final String text) {
-        return !isNullOrEmptyOrBlank(text);
-    }
+    /**
+     * Update the entity identified by the given identifier to the new provided value if its old value is not equal with the given one.
+     * @param id The String identifier of the entity
+     * @param oldValue The old value of the entity
+     * @param newValue The new value of the entity
+     */
+    void updateIfItIsNot(final String id, final T oldValue, final T newValue);
 
-    protected static boolean isNotNullNorEmpty(final byte[] bytes) {
-        return !isNullOrEmpty(bytes);
-    }
+    /**
+     * Delete the entity identified by the given identifier if its old value is equal with the given one.
+     * @param id The String identifier of the entity
+     * @param oldValue The old value of the entity
+     */
+    void deleteIfItIs(final String id, final T oldValue);
+
+    /**
+     * Delete the entity identified by the given identifier if its old value is not equal with the given one.
+     * @param id The String identifier of the entity
+     * @param oldValue The old value of the entity
+     */
+    void deleteIfItIsNot(final String id, final T oldValue);
 }
