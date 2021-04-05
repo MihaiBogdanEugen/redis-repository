@@ -50,11 +50,13 @@ final class EachEntityIsAValueBinaryRedisRepositoryTests extends RedisTestContai
                 REDIS_CONTAINER.getContainerIpAddress(),
                 REDIS_CONTAINER.getMappedPort(REDIS_PORT));
         jedis = jedisPool.getResource();
-        final var configuration = RedisRepositoryConfiguration.<Person>binaryApiBuilder()
+        final var configuration = RedisRepositoryConfiguration.<Person>builder()
                 .jedisPool(jedisPool)
                 .jedisExceptionInterceptor(jedisException -> logger.error(jedisException.getMessage(), jedisException))
                 .collectionKey("people")
-                .eachEntityIsAValue(serializer, deserializer)
+                .strategyEachEntityIsAValueBinary()
+                .serializer(serializer)
+                .deserializer(deserializer)
                 .build();
         repository = new BaseRedisRepository<>(configuration) { };
     }

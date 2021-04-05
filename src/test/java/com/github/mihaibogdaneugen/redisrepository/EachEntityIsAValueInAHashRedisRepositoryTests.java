@@ -53,7 +53,9 @@ final class EachEntityIsAValueInAHashRedisRepositoryTests extends RedisTestConta
                 .jedisPool(jedisPool)
                 .jedisExceptionInterceptor(jedisException -> logger.error(jedisException.getMessage(), jedisException))
                 .collectionKey("people")
-                .eachEntityIsAValueInAHash(serializer, deserializer)
+                .strategyEachEntityIsAValueInAHash()
+                .serializer(serializer)
+                .deserializer(deserializer)
                 .build();
         repository = new BaseRedisRepository<>(configuration) { };
     }
