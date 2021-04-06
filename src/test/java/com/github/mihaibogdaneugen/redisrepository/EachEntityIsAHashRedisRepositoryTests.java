@@ -63,9 +63,10 @@ final class EachEntityIsAHashRedisRepositoryTests extends RedisTestContainer {
                 .jedisPool(jedisPool)
                 .jedisExceptionInterceptor(jedisException -> logger.error(jedisException.getMessage(), jedisException))
                 .collectionKey("people")
-                .strategyEachEntityIsAHash()
-                .serializer(serializer)
-                .deserializer(deserializer)
+                .strategyEachEntityIsAHash(RedisRepositoryStrategy.EachEntityIsAHash.<Person>builder()
+                        .serializer(serializer)
+                        .deserializer(deserializer)
+                        .build())
                 .build();
         repository = new BaseRedisRepository<>(configuration) { };
     }

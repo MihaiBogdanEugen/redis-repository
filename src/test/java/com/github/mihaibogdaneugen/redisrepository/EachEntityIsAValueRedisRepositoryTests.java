@@ -53,9 +53,10 @@ final class EachEntityIsAValueRedisRepositoryTests extends RedisTestContainer {
                 .jedisPool(jedisPool)
                 .jedisExceptionInterceptor(jedisException -> logger.error(jedisException.getMessage(), jedisException))
                 .collectionKey("people")
-                .strategyEachEntityIsAValue()
-                .serializer(serializer)
-                .deserializer(deserializer)
+                .strategyEachEntityIsAValue(RedisRepositoryStrategy.EachEntityIsAValue.<Person>builder()
+                        .serializer(serializer)
+                        .deserializer(deserializer)
+                        .build())
                 .build();
         repository = new BaseRedisRepository<>(configuration) { };
     }

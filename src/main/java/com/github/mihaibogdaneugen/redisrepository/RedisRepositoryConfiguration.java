@@ -60,7 +60,7 @@ public class RedisRepositoryConfiguration<T> {
             this.collectionKey = collectionKey;
         }
         if (strategy == NONE) {
-            throw new IllegalArgumentException("Invalid RedisRepositoryStrategy");
+            throw new IllegalArgumentException("invalid RedisRepositoryStrategy");
         }
         this.strategy = strategy;
         this.useBinaryApi = useBinaryApi;
@@ -276,7 +276,14 @@ public class RedisRepositoryConfiguration<T> {
         private Consumer<JedisException> jedisExceptionInterceptor = null;
         private String collectionKey = null;
         private String keySeparator = ":";
-        private boolean binaryApi = false;
+        private boolean useBinaryApi = false;
+        private RedisRepositoryStrategy strategy = NONE;
+        private RedisRepositoryStrategy.EachEntityIsAValue<T> strategyEachEntityIsAValue;
+        private RedisRepositoryStrategy.EachEntityIsAHash<T> strategyEachEntityIsAHash;
+        private RedisRepositoryStrategy.EachEntityIsAValueInAHash<T> strategyEachEntityIsAValueInAHash;
+        private RedisRepositoryStrategy.BinaryEachEntityIsAValue<T> strategyBinaryEachEntityIsAValue;
+        private RedisRepositoryStrategy.BinaryEachEntityIsAHash<T> strategyBinaryEachEntityIsAHash;
+        private RedisRepositoryStrategy.BinaryEachEntityIsAValueInAHash<T> strategyBinaryEachEntityIsAValueInAHash;
 
         /**
          * Sets a JedisPool object.
@@ -320,218 +327,66 @@ public class RedisRepositoryConfiguration<T> {
             return this;
         }
 
+        public Builder<T> strategyEachEntityIsAValue(final EachEntityIsAValue<T> strategyEachEntityIsAValue) {
+            this.useBinaryApi = false;
+            this.strategy = EACH_ENTITY_IS_A_VALUE;
+            this.strategyEachEntityIsAValue = strategyEachEntityIsAValue;
+            return this;
+        }
+
+        public Builder<T> strategyEachEntityIsAHash(final EachEntityIsAHash<T> strategyEachEntityIsAHash) {
+            this.useBinaryApi = false;
+            this.strategy = EACH_ENTITY_IS_A_HASH;
+            this.strategyEachEntityIsAHash = strategyEachEntityIsAHash;
+            return this;
+        }
+
+        public Builder<T> strategyEachEntityIsAValueInAHash(final EachEntityIsAValueInAHash<T> strategyEachEntityIsAValueInAHash) {
+            this.useBinaryApi = false;
+            this.strategy = EACH_ENTITY_IS_A_VALUE_IN_A_HASH;
+            this.strategyEachEntityIsAValueInAHash = strategyEachEntityIsAValueInAHash;
+            return this;
+        }
+
+        public Builder<T> strategyBinaryEachEntityIsAValue(BinaryEachEntityIsAValue<T> strategyBinaryEachEntityIsAValue) {
+            this.useBinaryApi = true;
+            this.strategy = EACH_ENTITY_IS_A_VALUE;
+            this.strategyBinaryEachEntityIsAValue = strategyBinaryEachEntityIsAValue;
+            return this;
+        }
+
+        public Builder<T> strategyBinaryEachEntityIsAHash(BinaryEachEntityIsAHash<T> strategyBinaryEachEntityIsAHash) {
+            this.useBinaryApi = true;
+            this.strategy = EACH_ENTITY_IS_A_HASH;
+            this.strategyBinaryEachEntityIsAHash = strategyBinaryEachEntityIsAHash;
+            return this;
+        }
+
+        public Builder<T> strategyBinaryEachEntityIsAValueInAHash(BinaryEachEntityIsAValueInAHash<T> strategyBinaryEachEntityIsAValueInAHash) {
+            this.useBinaryApi = true;
+            this.strategy = EACH_ENTITY_IS_A_VALUE_IN_A_HASH;
+            this.strategyBinaryEachEntityIsAValueInAHash = strategyBinaryEachEntityIsAValueInAHash;
+            return this;
+        }
+
         public RedisRepositoryConfiguration<T> build() {
-            return new RedisRepositoryConfiguration<>(jedisPool, jedisExceptionInterceptor, collectionKey, keySeparator, NONE, false);
-        }
-
-        public EachEntityIsAValueBuilder<T> strategyEachEntityIsAValue() {
-            return new EachEntityIsAValueBuilder<>(jedisPool, jedisExceptionInterceptor, collectionKey, keySeparator);
-        }
-
-        public EachEntityIsAHashBuilder<T> strategyEachEntityIsAHash() {
-            return new EachEntityIsAHashBuilder<>(jedisPool, jedisExceptionInterceptor, collectionKey, keySeparator);
-        }
-
-        public EachEntityIsAValueInAHashBuilder<T> strategyEachEntityIsAValueInAHash() {
-            return new EachEntityIsAValueInAHashBuilder<>(jedisPool, jedisExceptionInterceptor, collectionKey, keySeparator);
-        }
-
-        public BinaryEachEntityIsAValueBuilder<T> strategyEachEntityIsAValueBinary() {
-            return new BinaryEachEntityIsAValueBuilder<>(jedisPool, jedisExceptionInterceptor, collectionKey, keySeparator);
-        }
-
-        public BinaryEachEntityIsAHashBinaryBuilder<T> strategyEachEntityIsAHashBinary() {
-            return new BinaryEachEntityIsAHashBinaryBuilder<>(jedisPool, jedisExceptionInterceptor, collectionKey, keySeparator);
-        }
-
-        public BinaryEachEntityIsAValueInAHashBinaryBuilder<T> strategyEachEntityIsAValueInAHashBinary() {
-            return new BinaryEachEntityIsAValueInAHashBinaryBuilder<>(jedisPool, jedisExceptionInterceptor, collectionKey, keySeparator);
-        }
-
-        public static class EachEntityIsAValueBuilder<T> {
-
-            private final JedisPool jedisPool;
-            private final Consumer<JedisException> jedisExceptionInterceptor;
-            private final String collectionKey;
-            private final String keySeparator;
-            private Function<T, String> serializer = null;
-            private Function<String, T> deserializer = null;
-
-            private EachEntityIsAValueBuilder(final JedisPool jedisPool, final Consumer<JedisException> jedisExceptionInterceptor, final String collectionKey, final String keySeparator) {
-                this.jedisPool = jedisPool;
-                this.jedisExceptionInterceptor = jedisExceptionInterceptor;
-                this.collectionKey = collectionKey;
-                this.keySeparator = keySeparator;
+            switch (strategy) {
+                case EACH_ENTITY_IS_A_VALUE:
+                    return useBinaryApi
+                            ? createBinaryEachEntityIsAValue(jedisPool, jedisExceptionInterceptor, collectionKey, keySeparator, strategyBinaryEachEntityIsAValue.getSerializer(), strategyBinaryEachEntityIsAValue.getDeserializer())
+                            : createEachEntityIsAValue(jedisPool, jedisExceptionInterceptor, collectionKey, keySeparator, strategyEachEntityIsAValue.getSerializer(), strategyEachEntityIsAValue.getDeserializer());
+                case EACH_ENTITY_IS_A_HASH:
+                    return useBinaryApi
+                            ? createBinaryEachEntityIsAHash(jedisPool, jedisExceptionInterceptor, collectionKey, keySeparator, strategyBinaryEachEntityIsAHash.getSerializer(), strategyBinaryEachEntityIsAHash.getDeserializer())
+                            : createEachEntityIsAHash(jedisPool, jedisExceptionInterceptor, collectionKey, keySeparator, strategyEachEntityIsAHash.getSerializer(), strategyEachEntityIsAHash.getDeserializer());
+                case EACH_ENTITY_IS_A_VALUE_IN_A_HASH:
+                    return useBinaryApi
+                            ? createBinaryEachEntityIsAValueInAHash(jedisPool, jedisExceptionInterceptor, collectionKey, keySeparator, strategyBinaryEachEntityIsAValueInAHash.getSerializer(), strategyBinaryEachEntityIsAValueInAHash.getDeserializer())
+                            : createEachEntityIsAValueInAHash(jedisPool, jedisExceptionInterceptor, collectionKey, keySeparator, strategyEachEntityIsAValueInAHash.getSerializer(), strategyEachEntityIsAValueInAHash.getDeserializer());
+                default:
+                    return new RedisRepositoryConfiguration<>(jedisPool, jedisExceptionInterceptor, collectionKey, keySeparator, NONE, false);
             }
 
-            public EachEntityIsAValueBuilder<T> serializer(final Function<T, String> serializer) {
-                this.serializer = serializer;
-                return this;
-            }
-
-            public EachEntityIsAValueBuilder<T> deserializer(final Function<String, T> deserializer) {
-                this.deserializer = deserializer;
-                return this;
-            }
-
-            public RedisRepositoryConfiguration<T> build() {
-                return createEachEntityIsAValue(jedisPool, jedisExceptionInterceptor, collectionKey, keySeparator, serializer, deserializer);
-            }
-        }
-
-        public static class EachEntityIsAHashBuilder<T> {
-
-            private final JedisPool jedisPool;
-            private final Consumer<JedisException> jedisExceptionInterceptor;
-            private final String collectionKey;
-            private final String keySeparator;
-            private Function<T, Map<String, String>> serializer = null;
-            private Function<Map<String, String>, T> deserializer = null;
-
-            private EachEntityIsAHashBuilder(final JedisPool jedisPool, final Consumer<JedisException> jedisExceptionInterceptor, final String collectionKey, final String keySeparator) {
-                this.jedisPool = jedisPool;
-                this.jedisExceptionInterceptor = jedisExceptionInterceptor;
-                this.collectionKey = collectionKey;
-                this.keySeparator = keySeparator;
-            }
-
-            public EachEntityIsAHashBuilder<T> serializer(Function<T, Map<String, String>> serializer) {
-                this.serializer = serializer;
-                return this;
-            }
-
-            public EachEntityIsAHashBuilder<T> deserializer(Function<Map<String, String>, T> deserializer) {
-                this.deserializer = deserializer;
-                return this;
-            }
-
-            public RedisRepositoryConfiguration<T> build() {
-                return createEachEntityIsAHash(jedisPool, jedisExceptionInterceptor, collectionKey, keySeparator, serializer, deserializer);
-            }
-        }
-
-        public static class EachEntityIsAValueInAHashBuilder<T> {
-
-            private final JedisPool jedisPool;
-            private final Consumer<JedisException> jedisExceptionInterceptor;
-            private final String collectionKey;
-            private final String keySeparator;
-            private Function<T, String> serializer = null;
-            private Function<String, T> deserializer = null;
-
-            private EachEntityIsAValueInAHashBuilder(final JedisPool jedisPool, final Consumer<JedisException> jedisExceptionInterceptor, final String collectionKey, final String keySeparator) {
-                this.jedisPool = jedisPool;
-                this.jedisExceptionInterceptor = jedisExceptionInterceptor;
-                this.collectionKey = collectionKey;
-                this.keySeparator = keySeparator;
-            }
-
-            public EachEntityIsAValueInAHashBuilder<T> serializer(Function<T, String> serializer) {
-                this.serializer = serializer;
-                return this;
-            }
-
-            public EachEntityIsAValueInAHashBuilder<T> deserializer(Function<String, T> deserializer) {
-                this.deserializer = deserializer;
-                return this;
-            }
-
-            public RedisRepositoryConfiguration<T> build() {
-                return createEachEntityIsAValueInAHash(jedisPool, jedisExceptionInterceptor, collectionKey, keySeparator, serializer, deserializer);
-            }
-        }
-
-        public static class BinaryEachEntityIsAValueBuilder<T> {
-
-            private final JedisPool jedisPool;
-            private final Consumer<JedisException> jedisExceptionInterceptor;
-            private final String collectionKey;
-            private final String keySeparator;
-            private Function<T, byte[]> serializer = null;
-            private Function<byte[], T> deserializer = null;
-
-            private BinaryEachEntityIsAValueBuilder(final JedisPool jedisPool, final Consumer<JedisException> jedisExceptionInterceptor, final String collectionKey, final String keySeparator) {
-                this.jedisPool = jedisPool;
-                this.jedisExceptionInterceptor = jedisExceptionInterceptor;
-                this.collectionKey = collectionKey;
-                this.keySeparator = keySeparator;
-            }
-
-            public BinaryEachEntityIsAValueBuilder<T> serializer(final Function<T, byte[]> serializer) {
-                this.serializer = serializer;
-                return this;
-            }
-
-            public BinaryEachEntityIsAValueBuilder<T> deserializer(final Function<byte[], T> deserializer) {
-                this.deserializer = deserializer;
-                return this;
-            }
-
-            public RedisRepositoryConfiguration<T> build() {
-                return createBinaryEachEntityIsAValue(jedisPool, jedisExceptionInterceptor, collectionKey, keySeparator, serializer, deserializer);
-            }
-        }
-
-        public static class BinaryEachEntityIsAHashBinaryBuilder<T> {
-
-            private final JedisPool jedisPool;
-            private final Consumer<JedisException> jedisExceptionInterceptor;
-            private final String collectionKey;
-            private final String keySeparator;
-            private Function<T, Map<byte[], byte[]>> serializer = null;
-            private Function<Map<byte[], byte[]>, T> deserializer = null;
-
-            private BinaryEachEntityIsAHashBinaryBuilder(final JedisPool jedisPool, final Consumer<JedisException> jedisExceptionInterceptor, final String collectionKey, final String keySeparator) {
-                this.jedisPool = jedisPool;
-                this.jedisExceptionInterceptor = jedisExceptionInterceptor;
-                this.collectionKey = collectionKey;
-                this.keySeparator = keySeparator;
-            }
-
-            public BinaryEachEntityIsAHashBinaryBuilder<T> serializer(Function<T, Map<byte[], byte[]>> serializer) {
-                this.serializer = serializer;
-                return this;
-            }
-
-            public BinaryEachEntityIsAHashBinaryBuilder<T> deserializer(Function<Map<byte[], byte[]>, T> deserializer) {
-                this.deserializer = deserializer;
-                return this;
-            }
-
-            public RedisRepositoryConfiguration<T> build() {
-                return createBinaryEachEntityIsAHash(jedisPool, jedisExceptionInterceptor, collectionKey, keySeparator, serializer, deserializer);
-            }
-        }
-
-        public static class BinaryEachEntityIsAValueInAHashBinaryBuilder<T> {
-
-            private final JedisPool jedisPool;
-            private final Consumer<JedisException> jedisExceptionInterceptor;
-            private final String collectionKey;
-            private final String keySeparator;
-            private Function<T, byte[]> serializer = null;
-            private Function<byte[], T> deserializer = null;
-
-            private BinaryEachEntityIsAValueInAHashBinaryBuilder(final JedisPool jedisPool, final Consumer<JedisException> jedisExceptionInterceptor, final String collectionKey, final String keySeparator) {
-                this.jedisPool = jedisPool;
-                this.jedisExceptionInterceptor = jedisExceptionInterceptor;
-                this.collectionKey = collectionKey;
-                this.keySeparator = keySeparator;
-            }
-
-            public BinaryEachEntityIsAValueInAHashBinaryBuilder<T> serializer(Function<T, byte[]> serializer) {
-                this.serializer = serializer;
-                return this;
-            }
-
-            public BinaryEachEntityIsAValueInAHashBinaryBuilder<T> deserializer(Function<byte[], T> deserializer) {
-                this.deserializer = deserializer;
-                return this;
-            }
-
-            public RedisRepositoryConfiguration<T> build() {
-                return createBinaryEachEntityIsAValueInAHash(jedisPool, jedisExceptionInterceptor, collectionKey, keySeparator, serializer, deserializer);
-            }
         }
     }
 }

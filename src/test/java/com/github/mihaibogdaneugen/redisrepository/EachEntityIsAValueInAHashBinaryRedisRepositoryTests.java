@@ -54,9 +54,10 @@ final class EachEntityIsAValueInAHashBinaryRedisRepositoryTests extends RedisTes
                 .jedisPool(jedisPool)
                 .jedisExceptionInterceptor(jedisException -> logger.error(jedisException.getMessage(), jedisException))
                 .collectionKey("people")
-                .strategyEachEntityIsAValueInAHashBinary()
-                .serializer(serializer)
-                .deserializer(deserializer)
+                .strategyBinaryEachEntityIsAValueInAHash(RedisRepositoryStrategy.BinaryEachEntityIsAValueInAHash.<Person>builder()
+                        .serializer(serializer)
+                        .deserializer(deserializer)
+                        .build())
                 .build();
         repository = new BaseRedisRepository<>(configuration) { };
     }
