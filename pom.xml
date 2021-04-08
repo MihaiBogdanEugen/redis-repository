@@ -52,7 +52,7 @@
         <local.repository.path>${project.build.directory}/repository</local.repository.path>
         <maven.compiler.source>${java.version}</maven.compiler.source>
         <maven.compiler.target>${java.version}</maven.compiler.target>
-        <maven.version>3.6.3</maven.version>
+        <maven.version>3.8.1</maven.version>
         <nexus.url>https://s01.oss.sonatype.org</nexus.url>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <repository.url>git@github.com:MihaiBogdanEugen/redis-repository.git</repository.url>
