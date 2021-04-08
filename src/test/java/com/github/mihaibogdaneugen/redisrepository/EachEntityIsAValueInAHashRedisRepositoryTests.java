@@ -74,7 +74,7 @@ final class EachEntityIsAValueInAHashRedisRepositoryTests extends RedisTestConta
     }
 
     @Nested
-    class TestsForGet {
+    final class TestsForGet {
         @Test
         void testGetInvalidArgument() {
             final var nullIdError = assertThrows(IllegalArgumentException.class, () ->
@@ -113,7 +113,7 @@ final class EachEntityIsAValueInAHashRedisRepositoryTests extends RedisTestConta
     }
 
     @Nested
-    class TestsForGetMultiple {
+    final class TestsForGetMultiple {
         @Test
         void testGetMultipleInvalidArgument() {
             final var nullIdError = assertThrows(IllegalArgumentException.class, () ->
@@ -175,7 +175,7 @@ final class EachEntityIsAValueInAHashRedisRepositoryTests extends RedisTestConta
     }
 
     @Nested
-    class TestsForGetAll {
+    final class TestsForGetAll {
         @Test
         void testGetAll() {
             final var expectedPeopleMap = IntStream.range(0, 50)
@@ -190,7 +190,7 @@ final class EachEntityIsAValueInAHashRedisRepositoryTests extends RedisTestConta
     }
 
     @Nested
-    class TestsForExists {
+    final class TestsForExists {
         @Test
         void testExistsInvalidArgument() {
             final var nullIdError = assertThrows(IllegalArgumentException.class, () ->
@@ -213,7 +213,7 @@ final class EachEntityIsAValueInAHashRedisRepositoryTests extends RedisTestConta
     }
 
     @Nested
-    class TestsForSet {
+    final class TestsForSet {
         @Test
         void testSetInvalidArgumentId() {
             final var person = Person.random();
@@ -257,7 +257,7 @@ final class EachEntityIsAValueInAHashRedisRepositoryTests extends RedisTestConta
     }
 
     @Nested
-    class TestsForSetIfItDoesExist {
+    final class TestsForSetIfItDoesExist {
         @Test
         void testSetIfItDoesExistInvalidArgumentId() {
             final var person = Person.random();
@@ -300,7 +300,7 @@ final class EachEntityIsAValueInAHashRedisRepositoryTests extends RedisTestConta
     }
 
     @Nested
-    class TestsForSetIfItDoesNotExist {
+    final class TestsForSetIfItDoesNotExist {
         @Test
         void testSetIfItDoesNotExistInvalidArgumentId() {
             final var person = Person.random();
@@ -344,7 +344,7 @@ final class EachEntityIsAValueInAHashRedisRepositoryTests extends RedisTestConta
     }
 
     @Nested
-    class TestsForUpdate {
+    final class TestsForUpdate {
         @Test
         void testUpdateInvalidArgumentId() {
             final var nullIdError = assertThrows(IllegalArgumentException.class, () ->
@@ -454,7 +454,7 @@ final class EachEntityIsAValueInAHashRedisRepositoryTests extends RedisTestConta
     }
 
     @Nested
-    class TestsForUpdateConditional {
+    final class TestsForUpdateConditional {
         @Test
         void testConditionalUpdateInvalidArgumentId() {
             final var nullIdError = assertThrows(IllegalArgumentException.class, () ->
@@ -605,7 +605,7 @@ final class EachEntityIsAValueInAHashRedisRepositoryTests extends RedisTestConta
     }
 
     @Nested
-    class TestsForDeleteOne {
+    final class TestsForDeleteOne {
         @Test
         void testDeleteInvalidArgument() {
             final var nullIdError = assertThrows(IllegalArgumentException.class, () ->
@@ -641,7 +641,7 @@ final class EachEntityIsAValueInAHashRedisRepositoryTests extends RedisTestConta
     }
 
     @Nested
-    class TestsForDeleteConditional {
+    final class TestsForDeleteConditional {
         @Test
         void testConditionalDeleteInvalidArgumentId() {
             final var nullIdError = assertThrows(IllegalArgumentException.class, () ->
@@ -725,7 +725,7 @@ final class EachEntityIsAValueInAHashRedisRepositoryTests extends RedisTestConta
     }
 
     @Nested
-    class TestsForDeleteMultiple {
+    final class TestsForDeleteMultiple {
         @Test
         void testDeleteMultipleInvalidArgument() {
             final var nullIdError = assertThrows(IllegalArgumentException.class, () ->
@@ -797,7 +797,7 @@ final class EachEntityIsAValueInAHashRedisRepositoryTests extends RedisTestConta
     }
 
     @Nested
-    class TestsForDeleteAll {
+    final class TestsForDeleteAll {
         @Test
         void testDeleteAll() {
             final var expectedPeopleMap = IntStream.range(0, 50)
@@ -813,7 +813,7 @@ final class EachEntityIsAValueInAHashRedisRepositoryTests extends RedisTestConta
     }
 
     @Nested
-    class TestsForGetAllIds {
+    final class TestsForGetAllIds {
         @Test
         void testGetAllIds() {
             final var noKeys = repository.getAllIds();
@@ -833,7 +833,7 @@ final class EachEntityIsAValueInAHashRedisRepositoryTests extends RedisTestConta
     }
 
     @Nested
-    class TestsForLuaScripts {
+    final class TestsForLuaScripts {
         @Test
         void testUpdateIfItIs() {
             final var oldPerson = Person.random();

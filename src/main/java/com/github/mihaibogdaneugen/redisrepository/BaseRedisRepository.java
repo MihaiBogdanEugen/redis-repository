@@ -10,6 +10,7 @@ import redis.clients.jedis.util.SafeEncoder;
 import java.util.*;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static com.github.mihaibogdaneugen.redisrepository.RedisRepositoryStrategy.EACH_ENTITY_IS_A_VALUE;
@@ -145,23 +146,23 @@ public abstract class BaseRedisRepository<T> implements RedisRepository<T>, Auto
             case EACH_ENTITY_IS_A_VALUE:
                 if (configuration.useBinaryApi()) {
                     final var keys = ids.stream()
-                            .filter(item -> !isNullOrEmptyOrBlank(item))
+                            .filter(Predicate.not(BaseRedisRepository::isNullOrEmptyOrBlank))
                             .map(id -> keyPrefix + id)
                             .map(SafeEncoder::encode)
                             .toArray(byte[][]::new);
                     final var values = getResult(jedis -> jedis.mget(keys));
                     return values.stream()
-                            .filter(item -> !isNullOrEmpty(item))
+                            .filter(Predicate.not(BaseRedisRepository::isNullOrEmpty))
                             .map(configuration::binaryDeserialize)
                             .collect(Collectors.toSet());
                 } else {
                     final var keys = ids.stream()
-                            .filter(item -> !isNullOrEmptyOrBlank(item))
+                            .filter(Predicate.not(BaseRedisRepository::isNullOrEmptyOrBlank))
                             .map(id -> keyPrefix + id)
                             .toArray(String[]::new);
                     final var values = getResult(jedis -> jedis.mget(keys));
                     return values.stream()
-                            .filter(item -> !isNullOrEmptyOrBlank(item))
+                            .filter(Predicate.not(BaseRedisRepository::isNullOrEmptyOrBlank))
                             .map(configuration::deserialize)
                             .collect(Collectors.toSet());
                 }
@@ -169,7 +170,7 @@ public abstract class BaseRedisRepository<T> implements RedisRepository<T>, Auto
                 if (configuration.useBinaryApi()) {
                     return getResult(jedis -> {
                         final var keys = ids.stream()
-                                .filter(item -> !isNullOrEmptyOrBlank(item))
+                                .filter(Predicate.not(BaseRedisRepository::isNullOrEmptyOrBlank))
                                 .map(id -> SafeEncoder.encode(keyPrefix + id))
                                 .collect(Collectors.toSet());
                         final var responses = new ArrayList<Response<Map<byte[], byte[]>>>();
@@ -179,14 +180,14 @@ public abstract class BaseRedisRepository<T> implements RedisRepository<T>, Auto
                         }
                         return responses.stream()
                                 .map(Response::get)
-                                .filter(map -> !isNullOrEmpty(map))
+                                .filter(Predicate.not(BaseRedisRepository::isNullOrEmpty))
                                 .map(configuration::binaryDeserializeFromHash)
                                 .collect(Collectors.toSet());
                     });
                 } else {
                     return getResult(jedis -> {
                         final var keys = ids.stream()
-                                .filter(item -> !isNullOrEmptyOrBlank(item))
+                                .filter(Predicate.not(BaseRedisRepository::isNullOrEmptyOrBlank))
                                 .map(id -> keyPrefix + id)
                                 .collect(Collectors.toSet());
                         final var responses = new ArrayList<Response<Map<String, String>>>();
@@ -196,7 +197,7 @@ public abstract class BaseRedisRepository<T> implements RedisRepository<T>, Auto
                         }
                         return responses.stream()
                                 .map(Response::get)
-                                .filter(map -> !isNullOrEmpty(map))
+                                .filter(Predicate.not(BaseRedisRepository::isNullOrEmpty))
                                 .map(configuration::deserializeFromHash)
                                 .collect(Collectors.toSet());
                     });
@@ -204,21 +205,21 @@ public abstract class BaseRedisRepository<T> implements RedisRepository<T>, Auto
             case EACH_ENTITY_IS_A_VALUE_IN_A_HASH:
                 if (configuration.useBinaryApi()) {
                     final var idsArray = ids.stream()
-                            .filter(id -> !isNullOrEmptyOrBlank(id))
+                            .filter(Predicate.not(BaseRedisRepository::isNullOrEmptyOrBlank))
                             .map(SafeEncoder::encode)
                             .toArray(byte[][]::new);
                     final var entities = getResult(jedis -> jedis.hmget(SafeEncoder.encode(parentKey), idsArray));
                     return entities.stream()
-                            .filter(item -> !isNullOrEmpty(item))
+                            .filter(Predicate.not(BaseRedisRepository::isNullOrEmpty))
                             .map(configuration::binaryDeserialize)
                             .collect(Collectors.toSet());
                 } else {
                     final var idsArray = ids.stream()
-                            .filter(id -> !isNullOrEmptyOrBlank(id))
+                            .filter(Predicate.not(BaseRedisRepository::isNullOrEmptyOrBlank))
                             .toArray(String[]::new);
                     final var entities = getResult(jedis -> jedis.hmget(parentKey, idsArray));
                     return entities.stream()
-                            .filter(item -> !isNullOrEmptyOrBlank(item))
+                            .filter(Predicate.not(BaseRedisRepository::isNullOrEmptyOrBlank))
                             .map(configuration::deserialize)
                             .collect(Collectors.toSet());
                 }
@@ -250,7 +251,7 @@ public abstract class BaseRedisRepository<T> implements RedisRepository<T>, Auto
                         final var keys = jedis.keys(SafeEncoder.encode(allKeysPattern)).toArray(byte[][]::new);
                         final var values = jedis.mget(keys);
                         return values.stream()
-                                .filter(item -> !isNullOrEmpty(item))
+                                .filter(Predicate.not(BaseRedisRepository::isNullOrEmpty))
                                 .map(configuration::binaryDeserialize)
                                 .collect(Collectors.toSet());
                     });
@@ -259,7 +260,7 @@ public abstract class BaseRedisRepository<T> implements RedisRepository<T>, Auto
                         final var keys = jedis.keys(allKeysPattern).toArray(String[]::new);
                         final var values = jedis.mget(keys);
                         return values.stream()
-                                .filter(item -> !isNullOrEmptyOrBlank(item))
+                                .filter(Predicate.not(BaseRedisRepository::isNullOrEmptyOrBlank))
                                 .map(configuration::deserialize)
                                 .collect(Collectors.toSet());
                     });
@@ -275,7 +276,7 @@ public abstract class BaseRedisRepository<T> implements RedisRepository<T>, Auto
                         }
                         return responses.stream()
                                 .map(Response::get)
-                                .filter(map -> !isNullOrEmpty(map))
+                                .filter(Predicate.not(BaseRedisRepository::isNullOrEmpty))
                                 .map(configuration::binaryDeserializeFromHash)
                                 .collect(Collectors.toSet());
                     });
@@ -289,7 +290,7 @@ public abstract class BaseRedisRepository<T> implements RedisRepository<T>, Auto
                         }
                         return responses.stream()
                                 .map(Response::get)
-                                .filter(map -> !isNullOrEmpty(map))
+                                .filter(Predicate.not(BaseRedisRepository::isNullOrEmpty))
                                 .map(configuration::deserializeFromHash)
                                 .collect(Collectors.toSet());
                     });
@@ -297,12 +298,12 @@ public abstract class BaseRedisRepository<T> implements RedisRepository<T>, Auto
             case EACH_ENTITY_IS_A_VALUE_IN_A_HASH:
                 if (configuration.useBinaryApi()) {
                     return getResult(jedis -> jedis.hgetAll(SafeEncoder.encode(parentKey)).values().stream()
-                            .filter(item -> !isNullOrEmpty(item))
+                            .filter(Predicate.not(BaseRedisRepository::isNullOrEmpty))
                             .map(configuration::binaryDeserialize)
                             .collect(Collectors.toSet()));
                 } else {
                     return getResult(jedis -> jedis.hgetAll(parentKey).values().stream()
-                            .filter(item -> !isNullOrEmptyOrBlank(item))
+                            .filter(Predicate.not(BaseRedisRepository::isNullOrEmptyOrBlank))
                             .map(configuration::deserialize)
                             .collect(Collectors.toSet()));
                 }
@@ -1089,13 +1090,13 @@ public abstract class BaseRedisRepository<T> implements RedisRepository<T>, Auto
             case EACH_ENTITY_IS_A_HASH:
                 if (configuration.useBinaryApi()) {
                     final var keys = ids.stream()
-                            .filter(item -> !isNullOrEmptyOrBlank(item))
+                            .filter(Predicate.not(BaseRedisRepository::isNullOrEmptyOrBlank))
                             .map(id -> SafeEncoder.encode(keyPrefix + id))
                             .toArray(byte[][]::new);
                     execute(jedis -> jedis.del(keys));
                 } else {
                     final var keys = ids.stream()
-                            .filter(item -> !isNullOrEmptyOrBlank(item))
+                            .filter(Predicate.not(BaseRedisRepository::isNullOrEmptyOrBlank))
                             .map(id -> keyPrefix + id)
                             .toArray(String[]::new);
                     execute(jedis -> jedis.del(keys));
@@ -1525,30 +1526,30 @@ public abstract class BaseRedisRepository<T> implements RedisRepository<T>, Auto
                             "return 0;")
     );
 
-    private static <T> void throwIfNull(final T object, final String valueName) {
+    private static <K> void throwIfNull(final K object, final String valueName) {
         if (object == null) {
             throw new IllegalArgumentException(valueName + " cannot be null!");
         }
     }
 
-    private static <T> void throwIfNullOrEmpty(final Collection<T> ids) {
+    private static <K> void throwIfNullOrEmpty(final Collection<K> ids) {
         if (isNullOrEmpty(ids)) {
             throw new IllegalArgumentException("ids cannot be null, nor empty!");
         }
+    }
+
+    private static <K> boolean isNullOrEmpty(final Collection<K> collection) {
+        return collection == null || collection.isEmpty();
+    }
+
+    private static <K> boolean isNullOrEmpty(final Map<K, K> map) {
+        return map == null || map.isEmpty();
     }
 
     private static void throwIfNullOrEmptyOrBlank(final String id) {
         if (isNullOrEmptyOrBlank(id)) {
             throw new IllegalArgumentException("id cannot be null, nor empty!");
         }
-    }
-
-    private static <T> boolean isNullOrEmpty(final Collection<T> collection) {
-        return collection == null || collection.isEmpty();
-    }
-
-    private static <T> boolean isNullOrEmpty(final Map<T, T> map) {
-        return map == null || map.isEmpty();
     }
 
     private static boolean isNullOrEmptyOrBlank(final String text) {

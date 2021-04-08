@@ -12,7 +12,7 @@ import static com.github.mihaibogdaneugen.redisrepository.RedisRepositoryStrateg
 /**
  * Configuration for a RedisRepository
  */
-public class RedisRepositoryConfiguration<T> {
+public final class RedisRepositoryConfiguration<T> {
 
     private static final String DEFAULT_KEY_SEPARATOR = ":";
 
@@ -270,7 +270,7 @@ public class RedisRepositoryConfiguration<T> {
         return new Builder<>();
     }
 
-    public static class Builder<T> {
+    public final static class Builder<T> {
 
         private JedisPool jedisPool = null;
         private Consumer<JedisException> jedisExceptionInterceptor = null;
