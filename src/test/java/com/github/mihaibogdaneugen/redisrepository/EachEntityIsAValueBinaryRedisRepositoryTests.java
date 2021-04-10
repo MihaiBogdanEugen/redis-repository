@@ -711,7 +711,7 @@ final class EachEntityIsAValueBinaryRedisRepositoryTests extends RedisTestContai
             }, 100);
             final var deleteResult = repository.delete(expectedPerson.getId(), person -> {
                 try {
-                    Thread.sleep(200);
+                    Thread.sleep(100);
                 } catch (final InterruptedException e) {
                     //ignored
                 }
