@@ -5,7 +5,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import redis.clients.jedis.JedisPool;
 
-import javax.swing.*;
 import java.util.Collections;
 import java.util.UUID;
 
