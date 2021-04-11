@@ -1,0 +1,38 @@
+plugins {
+    id "java"
+    id "idea"
+    id "com.github.ben-manes.versions" version "${versionVersions}"
+}
+
+repositories {
+    mavenCentral()
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(11)
+    }
+}
+
+dependencies {
+    implementation "redis.clients:jedis:$versionJedis"
+    testImplementation "com.fasterxml.jackson.core:jackson-databind:$versionJackson"
+    testImplementation "com.fasterxml.jackson.datatype:jackson-datatype-jsr310:$versionJackson"
+    testImplementation "org.slf4j:slf4j-simple:$versionSlf4j"
+    testImplementation "org.testcontainers:testcontainers:$versionTestcontainers"
+    testImplementation "org.testcontainers:junit-jupiter:$versionTestcontainers"
+    testImplementation "org.junit.jupiter:junit-jupiter-api:$versionJunit"
+    testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:$versionJunit"
+}
+
+tasks.named("test") {
+    useJUnitPlatform()
+    testLogging {
+        events "passed", "skipped", "failed"
+    }
+}
+
+tasks.named("wrapper") {
+    gradleVersion = "${versionGradle}"
+    distributionType = Wrapper.DistributionType.BIN
+}
