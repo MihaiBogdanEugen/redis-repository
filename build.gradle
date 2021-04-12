@@ -1,6 +1,8 @@
 plugins {
     id "java"
+    id "signing"
     id "idea"
+    id "maven-publish"
     id "com.github.ben-manes.versions" version "${versionVersions}"
 }
 
@@ -12,6 +14,8 @@ java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(11)
     }
+    withJavadocJar()
+    withSourcesJar()
 }
 
 dependencies {
@@ -35,4 +39,70 @@ tasks.named("test") {
 tasks.named("wrapper") {
     gradleVersion = "${versionGradle}"
     distributionType = Wrapper.DistributionType.BIN
+}
+
+tasks.named("javadoc") {
+    options.addStringOption('Xdoclint:none', '-quiet')
+    //options.addBooleanOption('Xdoclint:none', true)
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            groupId = "com.github.mihaibogdaneugen.redisrepository"
+            artifactId = "redis-repository"
+            version = "0.1.4-SNAPSHOT"
+            from components.java
+            pom {
+                name = "redis-repository"
+                description = "Generic Redis repository that aims to simplify your data access layer code"
+                url = "https://github.com/MihaiBogdanEugen/redis-repository"
+                packaging = "jar"
+                licenses {
+                    license {
+                        name = "MIT License"
+                        url = "https://github.com/MihaiBogdanEugen/redis-repository/LICENSE"
+                        distribution = "repo"
+                    }
+                }
+                developers {
+                    developer {
+                        id = "MihaiBogdanEugen"
+                        name = "Bogdan-Eugen Mihai"
+                        email = "mihai.bogdan.eugen@gmail.com"
+                        url = "https://github.com/MihaiBogdanEugen"
+                        roles = ["developer"]
+                        timezone = "+1"
+                    }
+                }
+                issueManagement {
+                    system = "github.com"
+                    url = "https://github.com/MihaiBogdanEugen/redis-repository/issues"
+                }
+                scm {
+                    connection = "scm:git:git@github.com:MihaiBogdanEugen/redis-repository.git"
+                    developerConnection = "scm:git:git@github.com:MihaiBogdanEugen/redis-repository.git"
+                    url = "git@github.com:MihaiBogdanEugen/redis-repository.git"
+                    tag = "HEAD"
+                }
+            }
+        }
+    }
+    repositories {
+        maven {
+            name = "OSSRH"
+            url = "https://oss.sonatype.org/service/local/staging/deploy/maven2/"
+            credentials {
+                username = System.getenv("MAVEN_USERNAME")
+                password = System.getenv("MAVEN_PASSWORD")
+            }
+        }
+    }
+}
+
+signing {
+    def signingKey = System.getenv("GPG_PRIVATE_KEY")
+    def signingPassword = System.getenv("GPG_PASSPHRASE")
+    useInMemoryPgpKeys(signingKey, signingPassword)
+    sign publishing.publications.mavenJava
 }
