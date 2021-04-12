@@ -1,11 +1,14 @@
-name: Build
+name: Publish
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [main]
 
 jobs:
-  build:
-    name: Build
+  publish:
+    name: Publish
     runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' && startsWith(github.event.head_commit.message, '[release]') }}
 
     steps:
       - name: Checkout
@@ -28,6 +31,14 @@ jobs:
 
       - name: Build with Gradle
         run: ./gradlew clean && ./gradlew --parallel build
+
+      - name: Publish to MavenCentral
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+          SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
+          SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
+        run: ./gradlew publish
 
       - name: Cleanup Gradle Cache
         # Remove some files from the Gradle cache, so they aren't cached by GitHub Actions.
