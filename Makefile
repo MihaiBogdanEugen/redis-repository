@@ -9,7 +9,7 @@ clean:
 
 ## build: Performs a clean build without running tests
 build: clean
-	./gradlew build -x test
+	./gradlew --parallel build -x test
 
 ## test: Cleans the project and runs a full build
 test: clean
