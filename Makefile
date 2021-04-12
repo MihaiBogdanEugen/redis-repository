@@ -19,4 +19,20 @@ test: clean
 dependency-updates:
 	./gradlew dependencyUpdates
 
-.PHONY: help clean build test dependency-updates
+## local-publish: Publishes the package in the local repository
+local-publish: test check-gpg-passphrase check-gpg-private-key
+	./gradlew publishToMavenLocal
+
+## check-gpg-private-key: Ensure the GPG_PRIVATE_KEY environment variable is defined
+check-gpg-private-key:
+ifndef GPG_PRIVATE_KEY
+	$(error "GPG_PRIVATE_KEY is undefined")
+endif
+
+## check-gpg-passphrase: Ensures the GPG_PASSPHRASE environment variable is defined
+check-gpg-passphrase:
+ifndef GPG_PASSPHRASE
+	$(error "GPG_PASSPHRASE is undefined")
+endif
+
+.PHONY: help clean build test dependency-updates local-publish check-gpg-private-key check-gpg-passphrase
