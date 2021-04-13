@@ -3,24 +3,36 @@ help:
 	@echo "Usage: \n"
 	@sed -n 's/^##//p' ${MAKEFILE_LIST} | column -t -s ':' |  sed -e 's/^/ /'
 
-## verify: Run any checks on results of integration tests to ensure quality criteria are met
-verify:
-	./mvnw clean verify
+## clean: Deletes the project build directory
+clean:
+	./gradlew clean
 
-## package: Take the compiled code and package it in its distributable format
-package:
-	./mvnw -B clean package --file pom.xml
+## build: Performs a clean build without running tests
+build: clean
+	./gradlew --parallel build -x test
 
-## check-dependency-updates: Check all the dependencies used in your project and display a list of those dependencies with newer versions available
-check-dependency-updates:
-	./mvnw versions:display-dependency-updates
+## test: Cleans the project and runs a full build
+test: clean
+	./gradlew test
 
-## check-pom-xml: Check the contents of a POM file against the rules of maven central
-check-pom-xml:
-	./mvnw org.kordamp.maven:pomchecker-maven-plugin:1.1.0:check-maven-central
+## dependency-updates: Checks for dependency updates
+dependency-updates:
+	./gradlew dependencyUpdates
 
-## local-deploy: Deploy locally a snapshot version
-local-deploy:
-	./mvnw -Ppublication,local-deploy -Dlocal.repository.path=$(shell pwd)/target/repository deploy
+## local-publish: Publishes the package in the local repository
+local-publish: test check-gpg-passphrase check-gpg-private-key
+	./gradlew publishToMavenLocal
 
-.PHONY: help verify package check-dependency-updates check-pom-xml local-deploy
+## check-gpg-private-key: Ensure the GPG_PRIVATE_KEY environment variable is defined
+check-gpg-private-key:
+ifndef GPG_PRIVATE_KEY
+	$(error "GPG_PRIVATE_KEY is undefined")
+endif
+
+## check-gpg-passphrase: Ensures the GPG_PASSPHRASE environment variable is defined
+check-gpg-passphrase:
+ifndef GPG_PASSPHRASE
+	$(error "GPG_PASSPHRASE is undefined")
+endif
+
+.PHONY: help clean build test dependency-updates local-publish check-gpg-private-key check-gpg-passphrase
